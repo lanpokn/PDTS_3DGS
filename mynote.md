@@ -1,0 +1,1 @@
+python train.py -s ../datasets/tandt_db/tandt/truck

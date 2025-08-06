@@ -1,0 +1,2879 @@
+Fast and Robust: Task Sampling with Posterior and Diversity Synergies for
+Adaptive Decision-Makers in Randomized Environments
+Yun Qu * 1 Qi (Cheems) Wang * 1 Yixiu Mao * 1 Yiqin Lv 1 Xiangyang Ji 1
+Abstract
+Task robust adaptation is a long-standing pursuit in sequential decision-making. Some riskaverse strategies, e.g., the conditional value-atrisk principle, are incorporated in domain randomization or meta reinforcement learning to prioritize difficult tasks in optimization, which demand costly intensive evaluations. The efficiency
+issue prompts the development of robust active
+task sampling to train adaptive policies, where
+risk-predictive models are used to surrogate policy evaluation. This work characterizes the optimization pipeline of robust active task sampling
+as a Markov decision process, posits theoretical
+and practical insights, and constitutes robustness
+concepts in risk-averse scenarios. Importantly, we
+propose an easy-to-implement method, referred to
+as Posterior and Diversity Synergized Task Sampling (PDTS), to accommodate fast and robust
+sequential decision-making. Extensive experiments show that PDTS unlocks the potential of robust active task sampling, significantly improves
+the zero-shot and few-shot adaptation robustness
+in challenging tasks, and even accelerates the
+learning process under certain scenarios. Our
+project website is at https://thu-rllab.
+github.io/PDTS_project_page.
+1. Introduction
+Deep reinforcement learning (RL) has garnered remarkable
+progress in solving complicated sequential decision-making
+problems in the past few years (Sutton & Barto, 2018). However, an existing challenge is effectively transferring the RL
+policy to unseen but similar scenarios without learning from
+scratch. A commonly used strategy is to randomize the
+*Equal contribution 1Department of Automation, Tsinghua
+University, Beijing, China. Correspondence to: Xiangyang Ji
+<xyji@tsinghua.edu.cn>.
+Proceedings of the 42 nd International Conference on Machine
+Learning, Vancouver, Canada. PMLR 267, 2025. Copyright 2025
+by the author(s).
+environment, e.g., placing a distribution over Markov decision processes (MDPs), for policy search in a zero-shot
+or few-shot manner. This facilitates the rise of domain randomization (DR) (Muratore et al., 2018) and Meta-RL (Finn
+et al., 2017) paradigms, which train adaptive policies in task
+episodic learning. Simultaneously, adaptation robustness to
+worst-case scenarios is catching increasing attention as most
+real-world decision-making scenarios are inherently risksensitive, where failures in adaptation can cause catastrophic
+outcomes, e.g., damage to robots (Carpin et al., 2016) or
+accidents in autonomous driving (Rempe et al., 2022).
+Active Inference’s Promise for Adaptive Robust DecisionMaker: When risk-averse principles are incorporated in DR
+and Meta-RL to enhance adaptation robustness (Wang et al.,
+2024c; Lv et al., 2024; Greenberg et al., 2024); prioritizing challenging tasks to optimize demands intensive and
+expensive policy evaluation in massive environments over
+iteration. To overcome the efficiency bottleneck, Wang et al.
+(2025b) constructs a risk predictive model to actively infer
+MDP difficulties for worst subset selection in policy search,
+which we identify as a method of the robust active task
+sampling (RATS) paradigm in Fig. 1. As policy evaluation in arbitrary MDPs can be amortized by executing this
+risk predictive model, the resulting model predictive task
+sampling (MPTS) (Wang et al., 2025b) enables expanding
+the scope of task subset selection, e.g., screening B from Bˆ
+MDPs, to learn adaptive policies without extra environment
+interaction cost. This reflects RTAS’s huge potential for
+efficient, robust decision-making when exhaustive policy
+evaluation is prohibitive in the vast MDP space.
+Challenges in Theoretical Analysis and Implementations:
+Despite RATS’s promise in decision-making, we can still
+perceive several issues from its latest SOTA method MPTS.
+(i) No versatile tool is developed for theoretical analysis,
+e.g., the robustness concept in optimization, which is an
+indispensable consideration in risk-averse cases. (ii) It
+requires a dedicated pseudo batch size Bˆ and other configurations. As implied in Meta-RL results (Wang et al.,
+2025b), appropriately mixing up the random and predictive
+samplers is decisive in task subset selection; otherwise, it
+degrades generalization and robustness (See Sec. 3.2). (iii)
+There lack comprehensive discussions about acquisition
+1
+arXiv:2504.19139v3 [cs.LG] 15 May 2025
+PDTS for Adaptive Decision-Makers in Randomized Environments
+Subsets
+4. Evaluation
+2. Amortized
+Evaluation
+1. Random Sampler
+Memory Buffer
+Candidate Tasks
+Adaptive Decision-Maker
+Predicted Results
+Risk Predictive Model
+MDPs Batch
+(a) General Framework of RATS in Risk-Averse Decision-Making
+Decision-Making in Randomized Environments Robust Active Task Sampling
+Selected Tasks
+3. Subset Selection
+Candidate Task Identifiers
+Risk Values
+Subsets Diversity
+Subset Selection in PDTS
+Amortized Evaluation with PS
+(b) PDTS as a RATS Method
+Figure 1. (a) General RATS in risk-averse decision-making. The pipeline involves amortized evaluation of task difficulties, robust subset
+selection, policy optimization in the MDP batch, and risk predictive models’ update. [fire: updates; snow: evaluation] (b) PDTS as a
+RATS method. PDTS treats task subsets as bandit arms, evaluates values through posterior sampling, and solves a regularized problem.
+principles in MPTS. The adopted upper confidence bound
+(UCB) principle must strike a balance between worst-case
+and uncertainty, with hyper-parameters carefully adjusted
+in implementation.
+Making Sense of RATS in Decision-Making: Regarding
+theoretical understanding, we first abstract the general RATS
+process as a task-selection MDP M, construct an infinitely
+many-armed bandit (i-MAB) (Carpentier & Valko, 2015) for
+task subset selection and demonstrate MPTS (Wang et al.,
+2025b) as a special solution to the i-MAB. Aim at exploring
+more optimal subsets with the risk predictive model; we
+make a diagnosis of the concentration issue under a larger
+Bˆ and enhance the acquisition function with the diversity
+regularization (Wang et al., 2023b; Borodin et al., 2017). To
+simplify the amortized evaluation and exploit the stochastic optimism in i-MAB, we adopt the posterior sampling
+strategy (Russo & Van Roy, 2014) to search for the optimal
+task subset with fewer configurations. Under these modifications, we present the Posterior and Diversity Synergized
+Task Sampling (PDTS) as a competitive RATS method.
+Contributions and Fascinating Discoveries in PDTS. This
+work is built on empirical findings and the risk predictive
+model in MPTS, while the research focus is orthogonal (See
+Table 1). Surrounding risk-averse adaptive decision-making,
+the primary contributions are:
+1. Our constructed i-MAB provides a versatile model to
+achieve RATS under various principles, including but
+not limited to MPTS and PDTS. The separate robustness concepts can be refined accordingly.
+2. The designed diversity regularized acquisition function
+fixes the concentration issue, allows for exploration in
+a wider range of task sets (e.g., Bˆ = 64B), and secures
+nearly worst-case MDP robustness.
+3. The resulting PDTS is easy-to-implement and benefits
+from stochastic optimism in posterior sampling for
+decision-making.
+Empirically, the most thrilling finding is that PDTS exhibits
+adaptation robustness superior to existing SOTA baselines in
+typical DR and Meta-RL benchmarks without complicated
+configurations. Even in more realistic and challenging scenarios, such as vision-based decision-making, PDTS retains
+a remarkable performance over others.
+2. Research Background
+Notations. For conciseness and coherence, we retain most
+notations in (Wang et al., 2025b) and leave the MDP distribution p(τ ) details and RL preliminaries in Appendix A.
+Both DR and Meta-RL perform policy search in p(τ ), where
+MDPs as tasks are specified by physics identifiers τ ∈ R
+d
+.
+The primary goal of DR (Tobin et al., 2017; Muratore et al.,
+2018) and Meta-RL (Beck et al., 2023) is to seek a policy
+θ ∈ Θ that adapts well to a new MDP with zero or a few rollouts. We denote the task-specific dataset by Dτ = DS
+τ ∪DQ
+τ
+,
+where DS
+τ
+are the K-rollouts for fast adaptation in MDP τ
+and DQ
+τ
+are rollouts for after-adaptation policy evaluation.
+DR differs from Meta-RL and learns to adapt in a zero-shot
+manner (Mehta et al., 2020; Chi et al., 2024a), indicating
+DS
+τ = ∅. The risk function is ℓ : Dτ × Θ 7→ R, mapping to
+the adaptation risk value, e.g., negative average returns of
+query rollouts.
+In task episodic learning of DR and Meta-RL, the optimization history is written as Hˆ
+t =
+
+θt,
+
+τt,i, Dτt,i , ℓt,i	B
+i=1,
+with B the number of tasks to optimize in t-th iteration.
+MPTS (Wang et al., 2025b) further prepares it as Ht =
+τt,i, Dτt,i , ℓt,i	B
+i=1 to feed into the risk learner to predict adaptation risk on arbitrary task. Importantly, it introduces the pseudo task set T
+Bˆ
+t with Bˆ > B and employ the
+
+PDTS for Adaptive Decision-Makers in Randomized Environments
+acquisition function A(·) to actively select the subset for
+next iteration. Throughout this work, we leave the exact optimization task batch size B fixed and same for all methods
+in both theoretical analysis and evaluation.
+2.1. Task Robust Optimization Methods
+Robustness (Carlini et al., 2019; Chi et al., 2024b) is entangled with risk minimization principles. And this part
+recaps those incorporated in DR and Meta-RL for robust
+decision-making.
+Expected/Empirical Risk Minimization (ERM). ERM
+originates from the statistical learning theory (Vapnik et al.,
+1998). Such a principle minimizes the expectation of risk
+values under p(τ ):
+min
+θ∈Θ
+Ep(τ)
+h
+ℓ(DQ
+τ
+, DS
+τ
+; θ)
+i
+, (1)
+where p(τ ) is mostly a uniform distribution as default.
+Group Distributionally Robust Risk Minimization
+(GDRM). Such a principle aims to boost the adaptation robustness under certain proportional scenarios, e.g., a group
+of some under-sampled yet challenging tasks (Sagawa et al.,
+2019). In mathematics, we can write the expression as:
+min
+θ∈Θ
+max
+g∈G
+Epg(τ)
+h
+ℓ(DQ
+τ
+, DS
+τ
+; θ)
+i
+, (2)
+with G to denote a collection of groups over a task dataset.
+GDRM handles extremely worst subpopulation shifts (Koh
+et al., 2021) through a risk-reweighting mechanism.
+Distributionally Robust Risk Minimization (DRM). As a
+typical strategy in DRM, CVaRα selects (1−α) proportional
+worst tasks after exact evaluation to optimize:
+min
+θ∈Θ
+CVaRα(θ) := Epα(τ;θ)
+h
+ℓ(DQ
+τ
+, DS
+τ
+; θ)
+i
+. (3)
+In Meta-RL, this corresponds to the hard MDP prioritization (Greenberg et al., 2024; Lv et al., 2024). With
+minθ∈Θ limα7→1 CVaRα(θ), it degenerates to the worstcase optimization in (Collins et al., 2020).
+2.2. RATS Preliminaries & MPTS Modules
+Here, we specify RATS paradigm, which slightly differs
+from traditional active learning purposes (Cohn et al., 1996).
+RATS is mainly incorporated into risk-averse learning with
+traits: (i) active inference towards task difficulties with limited cost, and (ii) acquisition rules to select the subset from
+the pseudo task set to optimize for robustness.
+The adaptation capability in either few-shot (Wang et al.,
+2022; Chi et al., 2021) or zero-shot is our primary focus
+to evaluate in RATS. Here, MPTS designs a risk predictive
+model p(ℓ|τ , H1:t; θt) to surrogate expensive evaluation,
+e.g., negative average rollout returns ℓ of the policy θt in
+a MDP τ . Hence, we identify it as a method of RATS. In
+particular, the empirical evidence in (Wang et al., 2025b)
+Fig. 5 validates its risk predictive model’s feasibility of
+approximately scoring MDPs’ difficulties with high Pearson
+correlation coefficients between the model predictive ones
+and exact evaluation. Next, we overview its construction
+together with the acquisition function.
+Generative Modeling Adaptation Optimization. MPTS
+treats the optimization history as sequence generation and
+involves latent variables zt to summarize batches of adaptation risk over iterations, which leads to:
+p(L
+B
+0:T , z0:T |θ0:T ) = p(z0)
+YT
+t=0
+p(L
+B
+t
+|zt, θt)
+TY−1
+t=0
+p(zt+1|zt),
+(4)
+with the evaluation risk batch L
+B
+t = {(τt,i, ℓt,i)}
+B
+i=1.
+With the Bayes rule and the streaming variational inference
+(Broderick et al., 2013; Nguyen et al., 2017) w.r.t. Eq. (4),
+it obtains the approximate evidence lower bound of the risk
+learner to maximize in each batch:
+max
+ψ∈Ψ,ϕ∈Φ
+GELBO(ψ, ϕ) := Eqϕ(zt|Ht)
+"XB
+i=1
+ln pψ(ℓt,i|τt,i, zt)
+#
+− βDKLh
+qϕ(zt|Ht) ∥ qϕ¯(zt|Ht−1)
+i
+, (5)
+with ϕ¯ the fixed conditioned prior from the last update
+and β ∈ R
++ the penalty weight. Then the amortized
+evaluation of adaptation performance is approximated
+as p(ℓ|τ , H1:t; θt) ≈ Eqϕ(zt|Ht)
+[pψ(ℓ|τ , zt; θt)] through
+Monte Carlo estimates.
+max
+ψ∈Ψ
+LML(ψ) := ln pψ(Ht|H1:t−1) (6a)
+p(ℓ|τˆi
+, H1:t; θt)
+MC −−→ {m(ℓi), σ(ℓi)}
+Bˆ
+i=1 (6b)
+T
+B∗
+t+1 = arg max
+TB
+t+1⊆TBˆ
+t+1:|TB
+t+1|=B
+AU(T
+B
+t+1) (6c)
+Optimization Pipeline. MPTS contains three critical steps
+in accordance with Eq. (6). ⃝1 In approximate posterior
+inference for Eq. (6)a, MPTS optimizes the risk predictive
+model through maximizing Eq. (5) with Ht; ⃝2 In amortized
+evaluation, it samples T
+Bˆ
+t+1 from p(τ ) and runs stochastic
+forward passes to estimate m(ℓi) and σ(ℓi) ∀τˆ ∈ T
+Bˆ
+t
+in
+Eq. (6)b; ⃝3 In subset selection, it picks up the subset T
+B
+t+1
+among Top-B acquisition scores from T
+Bˆ
+t+1 for next iteration
+optimization. By repeating ⃝1 -⃝3 steps for T-rounds, MPTS
+derives the robust adaptive decision-maker.
+3
+PDTS for Adaptive Decision-Makers in Randomized Environments
+Acquisition Function in MPTS. The subset selection rule
+is built on the principle of optimism in the face of uncertainty (OFU) (Auer, 2002b), and tasks with worse adaptation performance and higher epistemic uncertainty are
+prioritized. This leads to the UCB principle, i.e., AU(T
+B
+t+1)
+(Auer, 2002a; Garivier & Moulines, 2008):
+AU(T
+B
+t+1) = XB
+i=1
+γ0m(ℓi) + γ1σ(ℓi), with τi ∈ T
+B
+t+1, (7)
+where the mean m(ℓi) = Eqϕ(zt|Ht)
+h
+pψ(ℓ|τi
+, zt)
+i
+and
+the standard deviation σ(ℓi) = V
+1
+2
+qϕ(zt|Ht)
+h
+pψ(ℓ|τi
+, zt)
+i
+of task-specific adaptation risk and are estimated through
+multiple stochastic forward passes, i.e., zt ∼ qϕ(zt|Ht)
+and ℓi ∼ pψ(ℓi
+|τi
+, zt). {γ0, γ1} are trade-off parameters.
+3. Theoretical Investigations and Practical
+Enhancements
+This section first studies RATS with a task-selection MDP,
+proposes i-MABs as a versatile tool for RATS methods and
+establishes its connections with MPTS. To promote RATS’s
+use in risk-averse decision-making, we analyze acquisition
+rules’ influence on robustness concepts and present PDTS
+as an easy-to-implement yet powerful scheme.
+3.1. Enable Robust Active Task Sampling with i-MABs
+When RATS meets decision-making, it involves scoring
+MDPs’ difficulty from amortized evaluation, selecting a
+subset, and performing adaptive policy search in either a
+zero-shot or few-shot manner. The following introduces a
+theoretical tool to analyze these steps in RATS.
+...
+Figure 2. Task Robust Episodic Learning as a Task-Selection
+MDP.
+Task Robust Episodic Learning as a MDP. The primary
+insight lies in a finite-horizon Markov decision process (Puterman, 2014), denoted by M =< S, A, P, R >. Here, we
+specify the essential components of M as:
+• State Space. M treats the feasible machine learner’s parameter, such as Meta-RL policies, as the reachable state,
+i.e., S = {θ ∈ Θ};
+• Action Space. The action space constitutes a collection
+of task subsets with cardinality constraints At = {T
+B
+t ⊆
+T
+Bˆ
+t with |T
+B
+t
+| = B} in RATS or CVaRα methods;
+• Transition Dynamics.We describe the dynamical system
+as p(θt+1|θt, T
+B
+t+1) ∈ P conditioned on θt and the action
+T
+B
+t+1 with the transited state (after-adaptation) θt+1;
+• Reward Function. The step-wise reward quantifies adaptation robustness improvement after state transitions.
+With CVaRα as a risk-averse measure, we define it as
+R(θt, T
+B
+t+1) := CVaRα(θt) − CVaRα(θt+1).
+Given M in Fig. 2, the maximum iteration step T also
+corresponds to the total interaction rounds. The agent actively selects T
+B
+t+1 from the time-varying T
+Bˆ
+t+1 and optimize
+the machine learner to increase adaptation robustness in
+T-rounds.
+Accordingly, the sequential actions are the outcome of a
+series of deterministic functions as the policy set Π0:T −1 =
+{πt}
+T −1
+t=0 . Here, the policy maps H0:t to the next subset
+from T
+Bˆ
+t+1 for optimization, i.e., πt : H0:t 7→ T
+B
+t+1. These
+ingredients can depict M in a probabilistic graph as Fig. 2.
+Formally, we can express the agent’s ultimate goal as maximizing the cumulative reward in a sequential manner,
+Π
+∗
+0:T −1 = arg max
+Π0:T−1
+T
+X−1
+t=0
+R(θt, T
+B
+t+1). (8)
+Note that solving Eq. (8) is equivalent to reaching the optimal state θ
+∗
+T with lowest CVaRα(θ) after repeating T-round
+optimization steps.
+We also denote the policy subset of an arbitrary intermediate
+decision-making sequence by Πk:j := {πi}
+j
+i=k with its
+optimal solution marked in ∗
+. The associated cumulated
+return is Pj
+i=k R(θi
+, T
+B∗
+i+1) conditioned on the starting state
+θk.
+Remark 3.1 (Bellman Optimality). For the studied Thorizon M, we write its Bellman optimality as:
+TX−1
+i=0
+R(θi, T
+B∗
+i+1) = max
+Π0:t−1
+Xt−1
+i=0
+R(θi, T
+B
+i+1) +
+TX−1
+i=t
+R(θi, T
+B∗
+i+1),
+(9)
+revealing that the optimal solution to the sub-problem also
+reserves its global optimality. Hence, we can break the
+problem-solving into optimal subset selection in each round.
+From i-MABs to MPTS’s Robustness Concept. Finding
+plausible strategies to solve M is non-trivial as policy search
+is considered in a discrete space with the varying action set
+At. To this end, we further simplify M into an infinite MAB
+(Mahajan & Teneketzis, 2008) to enable an online search of
+the optimal subset and interpret the optimization pipeline of
+MPTS as a special case.
+Distinguished from the vanilla multi-armed bandit, M
+involves the state θt and At+1 induced by resampled
+T
+Bˆ
+t+1. The arm corresponds to a feasible subset T
+B
+t+1 ∈
+At+1. Hence, we can associate the reward distribution
+p(R|θt, T
+B
+t+1) with the chosen action T
+B
+t+1. As a result, one
+4
+PDTS for Adaptive Decision-Makers in Randomized Environments
+Table 1. Comparison between MPTS and PDTS in Contributions.
+Research Lens Robustness Concept Subset Selection Acquisition Rule
+MPTS (Wang et al., 2025b) Generative Modeling Nearly CVaRα Max-Sum (Top-B) UCB
+PDTS (Ours) MDP & i-MABs Nearly Worst-Case Max-Sum Diversity Posterior Sampling
+optimistic strategy for i-MABs is to execute greedy search
+T
+B∗
+t+1 = arg maxTB
+t+1∈At+1
+E
+
+R|θt, T
+B
+t+1
+in each round.
+The regret in the i-MAB measures the performance difference between the cumulated rewards of the optimal policy
+Π∗
+0:T −1
+and the actually executed policy Π0:T −1 over Trounds:
+Regret(T, Π0:T −1) =
+T
+X−1
+t=0
+
+R(θ
+∗
+t
+, T
+B∗
+t+1) − R(θt, T
+B
+t+1)
+
+.
+(10)
+We can further simplify the definition expression as
+Regret(T, Π0:T −1) = CVaRα(θT ) − CVaRα(θ
+∗
+T
+), which
+quantifies the performance gap between the optimal state
+and the practical state under (1 − α)-tail robustness.
+Proposition 3.2 (MPTS as a UCB-guided Solution to
+i-MABs). Executing MPTS pipeline in Eq. (6) is equivalent to approximately solving M with the i-MAB under the
+UCB principle.
+Consequently, our i-MAB is a theoretical model for inducing RATS methods, and MPTS can be viewed as a special
+case in Proposition 3.2.
+3.2. Acquisition Functions Matter in Improving
+Coverage & Boosting Robustness
+Several decision-making scenarios, e.g., robotics, are riskaverse, which makes worst-case optimization more advantageous (Greenberg et al., 2024). However, (i) the search
+scope to worst cases is restricted by the batch size, and (ii)
+minimax optimization requires carefully designed relaxation
+in the field (Collins et al., 2020; Sagawa et al., 2019).
+Benefits of Enlarging Bˆ in Subset Selection. Note that
+the feasible subset is the arm in the i-MAB, enlarging Bˆ
+increases its number to |At| = C
+B
+Bˆ
+. One promising trait of
+the risk predictive model in MPTS is to amortize the policy evaluation in arbitrary MDP without exact interactions.
+Hence, greater Bˆ in implementation reserves at least two
+bonus: (i) it encourages exploration in the task space with
+more candidate subsets at no actual interaction cost; (ii) under high-risk prioritization rule, the optimization pipeline in
+RATS approximately executes CVaR1− B
+Bˆ
+in each iteration,
+i.e., worst-case optimization with Bˆ → ∞. Notably, the additional computational overhead with larger Bˆ remains negligible due to the efficiency of the risk predictive model—its
+0 1 2
+Task Identifier
+0.0
+2.5
+5.0
+7.5
+10.0
+12.5
+Frequency
+Sampling Frequency
+Candidate
+Selected
+0 200 400
+Iteration
+150
+125
+100
+75
+50
+25
+0
+CVaR0.9 Return
+Walker2dVel
+0 200 400
+Iteration
+20
+0
+20
+40
+60
+Average Return
+Walker2dVel
+PDTS (Ours, 64x)
+MPTS (1.5x, mixed)
+MPTS (8x, no_mixed)
+MPTS (8x, mixed)
+Figure 3. MPTS’s Performance Collapse with Greater Bˆ. We
+report the performance collapses of MPTS on Walker2dVel in the
+case Bˆ = 8B. The task sampling frequency reveals the presence
+of the concentration issue.
+cost is significantly lower than that of agent-environment
+interactions and policy optimization in Meta-RL or DR.
+Unfortunately, MPTS might encounter performance collapse with greater Bˆ , as indicated in Fig. 3 when Bˆ = 8B
+without a remedy. This empirical result can be attributed to
+the selected subset’s concentration in a narrow range, which
+motivates the proposal of heuristic tricks in Meta-RL to
+adopt a mixed sampling strategy to ensure sufficient visitations to the whole task space (Wang et al., 2025b; Greenberg
+et al., 2024). Although these heuristics mitigate the issue,
+they do not provide a complete solution, as performance
+degradation persists with increasing B.
+Theoretical Diagnosis of Sealed Exploration Potential in
+MPTS. In practice, we propose to circumvent complicated
+heuristics and retain the simplicity to enable sufficient exploration in i-MABs. To this end, we analyze the concentration
+issue and report the theoretical analysis as Proposition 3.3.
+Proposition 3.3 (Concentration Issue in Average Top-B
+Selection). Let f(τ ) : R
+d → R be a unimodal and continuous function, where d ∈ N
++ and τ ∈ R
+d
+, with a
+maximum value f(τ
+∗
+) at τ
+∗
+. We uniformly sample a
+set of points T
+Bˆ = {τi}
+Bˆ
+i=1, where τi are i.i.d. with a
+probability pϵ of falling within a ϵ-neighborhood of τ
+∗ as
+|f(τ ) − f(τ
+∗
+)| ≤ ϵ. Following MPTS, we select the Top-B
+samples with the largest function values, i.e.,
+T
+B = Top-B(T
+Bˆ
+, f), Bˆ , B ∈ N
++, B ≤ Bˆ ,
+For any ϵ > 0 such that pϵ <
+Bˆ −B+2
+Bˆ +1
+, the concentration
+probability
+P
+
+|f(τ ) − f(τ
+∗
+)| ≤ ϵ | ∀τ ∈ T
+B
+
+
+PDTS for Adaptive Decision-Makers in Randomized Environments
+increases with Bˆ and converges to 1 with Bˆ → ∞.
+As implied, with the increase of Bˆ and fixed B, the Top-B
+operator tends to select the subset in a small neighborhood
+of arg maxτ f(τ ), which corresponds to the subset concentration issue in MPTS, over-optimizes a local region and
+hampers task space exploration. Due to the use of Top-B
+operator in batch optimization, we also hypothesize a similar phenomenon in DRM (Wang et al., 2024c; Lv et al.,
+2024). Next, we will propose a natural plausible mechanism
+to enlarge Bˆ in RATS without suffering concentration pains.
+Diversity Regularization & Robustness Concept. Our
+strategy is to encourage the coverage of the task space during subset selection. Specifically, rather than selecting individual candidate tasks based on their acquisition score,
+we evaluate task batches based on both adaptation risk and
+task diversities in the subset. This formulation constructs a
+diversity maximization problem (Wang et al., 2023b):
+max
+TB⊆TBˆ
+:|TB|=B
+A(T
+B) + γS [{d(τi
+, τj )}] (11)
+where S measures the diversity of the subset T
+B from identifiers’ pairwise distances, e.g., P
+i,j ||τi − τj ||2
+2
+.
+Though the involvement of the regularization term makes
+the subset selection problem NP-hard, it can be solved using
+simple approximate algorithms (Borodin et al., 2017; Wang
+et al., 2023b).
+Proposition 3.4 (Nearly Worst-Case Optimization with
+PDTS). When Bˆ grows large enough, optimizing the subset
+from Eq. (11) achieves nearly worst-case optimization.
+Proposition 3.4 indicates that the regularized acquisition
+rule in Eq. (11) enables exploration of the worst subset
+from numerous candidate arms while retaining the subset’s
+coverage of the task space to a certain level. Compared
+with (Collins et al., 2020; Sagawa et al., 2019), such a
+regularization will show its effectiveness in experiments.
+3.3. Practical Sampling with Stochastic Optimism
+So far, we have presented the i-MAB as a theoretical tool
+for RATS and interpreted MPTS as the UCB-guided solution. However, the UCB acquisition rule requires multiple
+stochastic forward passes for each task’s evaluation, and
+computations grow with Bˆ . It also demands calibration of
+exploration and exploitation weights in subset search.
+To cut off unnecessary computations and retain the uncertainty optimism, we adopt the posterior sampling strategy
+as the acquisition principle for RATS. The posterior sampling (Osband et al., 2013; Asmuth et al., 2012) is an extension of Thompson sampling (Thompson, 1933) in solving
+MDPs with infinite actions. The reward or action value
+is treated as a randomized function, and each arm’s value,
+sampled from the posterior once, serves action selection,
+i.e., AP(T
+B) = PB
+i=1
+ˆℓt+1,i in Eq. (12).
+One Forward Pass: zt ∼ qϕ(zt|Ht) (12a)
+ˆℓt+1,i ∼ pψ(ℓ|τˆi
+, zt) ∀i ∈ {1, . . . , Bˆ } (12b)
+T
+B∗
+t+1 = arg max
+TB⊆TBˆ
+|TB|=B
+AP(T
+B) + γS [{d(τi
+, τj )}] (12c)
+As implied in (Russo & Van Roy, 2014), posterior sampling
+avoids over-exploitation of inaccurate estimated uncertainty,
+and benefits more from stochasticity. Together with diversity regularization, we obtain PDTS as a new RATS method
+in Eq. (12). Intuitively, diversity penalty and posterior sampling suppress inaccurate Top-B operations and synergize
+exploration in the task space. PDTS enjoys implementation
+simplicity, computational efficiency and stochastic optimism
+in decision-making.
+3.4. Overall Implementation
+Putting the above modules together, we present PDTS in
+Algorithm 1, which is easily wrapped into DR and Meta-RL
+(See Algorithm 2 and 4).
+Algorithm 1 Posterior-Diversity Synergized Task Sampling
+Input :Task distribution p(τ ); Task batch size B; Candidate batch size Bˆ ; Latest updated {ψ, ϕ}; Latest
+history Ht−1; Iteration number K; Learning rate
+λ2.
+Output :Selected task identifier batch {τt,i}
+B
+i=1.
+// Optimize Risk Predictive Module
+for i = 1 to K do
+Perform gradient updates given Ht−1:
+ϕ ← ϕ + λ2∇ϕGELBO(ψ, ϕ) in Eq. (5);
+ψ ← ψ + λ2∇ψGELBO(ψ, ϕ) in Eq. (5);
+end
+// Simulating After-Adaptation Results
+Randomly sample {τˆt,i}
+Bˆ
+i=1 from p(τ );
+// Posterior Sampling Outcome
+Amortized evaluation {
+ˆℓt,i}
+Bˆ
+i=1 with one stochastic forward
+pass for all candidate tasks through executing Eq. (12)a-b;
+// Diversity-Guided Subset Search
+Run approximate algorithms to solve Eq. (12)c;
+Return the screened subset {τt,i}
+B
+i=1 for next iteration.
+4. Experiments
+This section presents experimental results on Meta-RL and
+robotics DR involving randomized physics properties.
+Risk-Averse Baselines. For fair comparison, we retain
+the standard setup in (Wang et al., 2025b) and use SOTA
+6
+PDTS for Adaptive Decision-Makers in Randomized Environments
+0 200 400
+Iteration
+80
+60
+40
+20
+CVaR0.9 Return
+ReacherPos
+0 200 400
+Iteration
+150
+100
+50
+0 Walker2dVel
+0 200 400
+Iteration
+150
+100
+50
+Walker2dMassVel
+0 200 400
+Iteration
+275
+250
+225
+200
+175
+HalfCheetahMassVel
+0 200 400
+Iteration
+60
+40
+20
+Average Return
+0 200 400
+Iteration
+20
+0
+20
+40
+60
+0 200 400
+Iteration
+20
+0
+20
+40
+0 200 400
+Iteration
+200
+180
+160
+140
+120
+CVaR0.5 CVaR0.7 CVaR0.9
+60
+50
+40
+30
+20
+Meta-Testing Return
+CVaR0.5 CVaR0.7 CVaR0.9
+60
+40
+20
+0
+20
+CVaR0.5 CVaR0.7 CVaR0.9
+60
+40
+20
+0
+20
+CVaR0.5 CVaR0.7 CVaR0.9
+200
+180
+160
+140
+PDTS (Ours) MPTS ERM GDRM DRM
+Figure 4. Meta-RL Results. The top depicts the cumulative return curves for CVaR0.9 validation MDPs during meta-training; the middle
+shows the average cumulative returns curves during meta-training; and the bottom presents the meta-testing results with various α.
+baselines as described in Section 2.1: ERM (Vapnik et al.,
+1998), DRM (Wang et al., 2024c; Greenberg et al., 2024),
+GDRM (Sagawa et al., 2019), and MPTS. Following implementations in (Wang et al., 2025b; Tao et al., 2024), we
+use MAML (Finn et al., 2017) as the backbone algorithm
+in Meta-RL and employ TD3 (Fujimoto et al., 2018) and
+PPO (Schulman et al., 2017) for domain randomization,
+respectively.
+We run each algorithm on seven random seeds and report
+the average performance with standard error of means. For
+adaptation robustness, we compute CVaRα values across the
+validation tasks, with α = {0.9, 0.7, 0.5}, and also report
+some out-of-distribution (OOD) results. Importantly, the
+pseudo batch size is set to Bˆ = 64B as default for PDTS.
+4.1. Meta Reinforcement Learning
+We consider Meta-RL continuous control scenarios based
+on MuJoCo (Todorov et al., 2012): Reacher, Walker2d,
+and HalfCheetah. These include identifiers: target position,
+velocity, and mass (Wang et al., 2025b).
+Fig. 4 reveals PDTS consistent superiority over others in
+CVaR0.9 validation return, demonstrating excellent adaptation robustness. Owing to intrinsic sampling randomness,
+PDTS and MPTS achieve average performance comparable
+to ERM, while DRM struggles to improve robustness and
+sacrifices more average returns. Surprisingly, benefiting
+from exploration, PDTS boosts both adaptation robustness
+and task efficiency on ReacherPos. We will further discuss
+this in Section 4.2. Regarding meta-testing, PDTS excels
+across CVaR values, consistent with the learning curves. Notably, PDTS’s performance advantage increases with higher
+α values. In the extreme scenario CVaR0.9, PDTS outperforms others by more than 15% on all benchmarks except
+HalfCheetahMassVel.
+PDTS is agnostic to the meta-learning backbone. PDTS
+is a plug-and-play module agnostic to the meta-learning
+backbone. Here, we integrate PDTS with PEARL (Rakelly
+et al., 2019) and compare it with MPTS and RoML (Greenberg et al., 2024), built on the same backbone. As shown in
+Table 2, we evaluate these methods on two Meta-RL scenarios from RoML. PDTS outperforms others in terms of CVaR
+return, further examining its effectiveness and scalability in
+risk-averse decision-making.
+Table 2. PDTS’s compatibility with PEARL backbone. Baselines
+are MPTS and RoML (Greenberg et al., 2024).
+CVaR0.95 Return PDTS MPTS RoML PEARL
+HalfCheetahBody 993±26 945±26 855±35 847±42
+HalfCheetahMass 1296±41 1209±45 1197±59 1118±51
+4.2. Physical Robotics Domain Randomization
+We evaluate PDTS on three DR scenarios introduced by
+Mehta et al. (2020): a game scenario, LunarLander, and two
+robotic arm control scenarios, Pusher and ErgoReacher.
+Empirical findings in Fig. 5(a) are consistent with those
+in Meta-RL, where PDTS dominates the robustness performance. Notably, PDTS’s advantage is more pronounced on
+Pusher and LunarLander, where the identifiers’ dimension
+7
+PDTS for Adaptive Decision-Makers in Randomized Environments
+0.0 0.5 1.0 1.5
+Agent Steps (x10
+6
+)
+68
+66
+64
+62
+60
+58
+56
+CVaR0.9 Return
+Pusher
+0.0 0.5 1.0 1.5 2.0
+Agent Steps (x10
+6
+)
+100
+0
+100
+200
+LunarLander
+0.0 0.5 1.0 1.5 2.0
+Agent Steps (x10
+6
+)
+55
+60
+65
+70
+75
+ErgoReacher
+1 2 3 4
+Main Engine Strength (OOD)
+0
+100
+200
+300
+Testing Return
+ID and OOD tesing on LunarLander
+0.0 0.5 1.0 1.5
+Agent Steps (x10
+6
+)
+60.0
+57.5
+55.0
+52.5
+50.0
+47.5
+Average Return
+2.4x acceleration
+0.0 0.5 1.0 1.5 2.0
+Agent Steps (x10
+6
+)
+50
+100
+150
+200
+250
+300 1.3x acceleration
+0.0 0.5 1.0 1.5 2.0
+Agent Steps (x10
+6
+)
+82
+84
+86
+88
+90
+5 10 15
+Main Engine Strength (ID)
+100
+150
+200
+250
+300
+Testing Return
+Average CVaR0.5 CVaR0.7 CVaR0.9
+65
+60
+55
+50
+Testing Return
+Average CVaR0.5 CVaR0.7 CVaR0.9
+50
+100
+150
+200
+250
+300
+Average CVaR0.5 CVaR0.7 CVaR0.9
+70
+75
+80
+85
+90
+20 21 22 23
+Main Engine Strength (OOD)
+200
+225
+250
+275
+300
+Testing Return
+(a) (b)
+PDTS (Ours) MPTS ERM GDRM DRM
+Figure 5. Physical Robotics DR Results. (a) The top shows the cumulative return curves for CVaR0.9 validation MDPs during training;
+the middle displays the average cumulative return curves across all validation MDPs during training; and the bottom presents the test
+results at various CVaRα. (b) We evaluate the trained policies in both in-distribution (ID) and out-of-distribution (OOD) domains on
+LunarLander, reporting the average returns for each sampled task.
+is lower than ErgoReacher’s. This is likely because lowdimensional task identifiers exacerbate the concentration
+issue, limiting the performance of MPTS. GDRM and DRM
+perform poorly in both average performance and robustness.
+Given a fixed batch size, this weakness may stem from their
+limited exploration capacity. Regarding final testing performance, PDTS excels across CVaR values. Specifically,
+PDTS outperforms ERM by more than 8% on all benchmarks in CVaR0.9, and by as much as 73% on LunarLander.
+PDTS improves task efficiency in specific scenarios. Beyond adaptation robustness, PDTS shows the potential to accelerate training in specific scenarios. As shown in Fig. 5(a),
+PDTS achieves average returns comparable to ERM’s best
+performance but with fewer training steps, achieving 2.4×
+acceleration in Pusher and 1.3× in LunarLander. We attribute this acceleration to the efficient exploration of acquisition criteria. Hence, PDTS holds promise for achieving
+robustness with reduced training steps in broader scenarios.
+PDTS achieves superior zero-shot policy adaptation
+in OOD MDPs. On Lundarlander, Fig. 5(b) witnesses
+PDTS’s highest average test returns across sampled tasks.
+To evaluate zero-shot adaptation in OOD MDPs, we shift
+the identifier interval τ ∈ [4.0, 20.0] to the OOD range
+τ ∈ [1.0, 4.0) ∪ (20.0, 23.0]. Notably, PDTS exhibits the
+smallest performance degradation, particularly in the most
+challenging OOD tasks (τ ∈ [1.0, 4.0)).
+4.3. Visual Robotics Domain Randomization
+Vision-based robotics control is more challenging and underexplored in MPTS. With the latest robotics simulator,
+ManiSkill3 (Tao et al., 2024), we design two visual DR scenarios: one randomizing lighting with a table-top two-finger
+gripper arm robot called LiftPegUpright Light, and another
+randomizing goal locations with a quadruped robot called
+AnymalCReach Goal, as illustrated in Fig. 6(a).
+PDTS achieves best robustness performance in Fig. 6(b),
+same as symbolic scenarios. Moreover, PDTS also exhibits
+a trend of accelerated training in terms of average performance, highlighting its potential for realistic scenarios requiring both fast and robust adaptation. Due to insufficient
+task exploration, DRM performs poorly and probably gets
+trapped in challenging tasks. ERM obtains the worst final performance on AnymalCReach Goal. These findings
+underscore the importance of robust optimization with sufficient exploration, which may explain PDTS’s success.
+PDTS can well discriminate task difficulties. We evaluate
+the Pearson Correlation Coefficient (PCC) between the predicted episode returns and the exact values during training.
+As shown in Fig. 6(c), PDTS inherits MDPs’ difficulty scoring capability of MPTS, with both PCC values greater than
+0.5. In particular, PDTS exceeds MPTS in predicting accuracies, which may be attributed to the extended exploration
+and the stochastic optimism in posterior sampling.
+8
+PDTS for Adaptive Decision-Makers in Randomized Environments
+0 2 4 6 8
+Agent Steps (x10
+6
+)
+0.0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+Average Success Ratio
+LiftPegUpright_Light
+0 2 4 6 8
+Agent Steps (x10
+6
+)
+0.0
+0.1
+0.2
+0.3
+0.4
+CVaR0.5 Success Ratio
+LiftPegUpright_Light
+0 2 4 6 8
+Agent Steps (x10
+6
+)
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+PCC
+LiftPegUpright_Light
+0 2 4 6 8
+Agent Steps (x10
+6
+)
+0.0
+0.2
+0.4
+0.6
+0.8
+Average Success Ratio
+AnymalCReach_Goal
+0 2 4 6 8
+Agent Steps (x10
+6
+)
+0.0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+CVaR0.5 Success Ratio
+AnymalCReach_Goal
+1.0 1.2 1.4 1.6
+Relative Memory
+1.00
+1.25
+1.50
+1.75
+2.00
+2.25
+Relative Clock Times
+ERM
+MPTSGDRM
+DRM
+PDTS
+(b)
+(c)
+(d)
+PDTS (Ours) MPTS ERM GDRM DRM
+LiftPegUpright_Light
+AnymalCReach_Goal
+(a)
+Figure 6. Visual Robotics DR results. (a) Illustrations of two visual DR scenarios. (b) Curves of the average success ratio and the
+CVaR0.5 success ratio on validation tasks during training. (c) Training curves of PCC values between predicted and true episode returns.
+(d) Memory cost and clock time relative to ERM during meta-training.
+PDTS offers learning efficiency advantages at minimal
+cost. Like MPTS, PDTS avoids additional evaluation costs
+associated with interaction and rendering, making it more
+beneficial in vision-based RL tasks. From relative clock
+time and memory usage in Fig. 6(d), we find PDTS retains
+computational efficiency with others except DRM. As a
+result, PDTS is a robust and scalable approach for complex,
+interaction-intensive tasks.
+5. Conclusion
+Technical Discussions. This work studies RATS’s use for
+learning adaptive decision-makers in risk-averse decisionmaking. We present the i-MAB as a theoretical tool to
+enable RATS and establish theoretical connections with its
+latest method (Wang et al., 2025b). Built on these insights,
+we propose PDTS as a competitive RATS method to achieve
+nearly worst-case optimization. Extensive DR and Meta-RL
+experiments validate the effectiveness of RATS and show
+its efficiency potential in risk-averse scenarios.
+Limitations & Extensions. Our approach relies on the
+risk predictive model for roughly scoring task difficulties
+and leverages identifier information alongside the inherent
+smoothness of the adaptation risk function, though these
+assumptions may not always hold in restricted scenarios.
+While robust active learning remains underexplored in sequential decision-making, reducing computational and sample expenses and improving robustness are crucial for building large-scale decision models. The models and algorithms
+introduced in this work offer a tractable strategy with strong
+empirical performance toward achieving RATS goals. Future explorations can include designing more accurate riskpredictive models to enhance amortized evaluation reliability, as well as integrating stronger robust optimization
+techniques into i-MAB frameworks to develop practical and
+scalable RATS methods.
+Impact Statement
+This paper presents work whose goal is to advance the field
+of Machine Learning. There are many potential societal consequences of our work, including enhancing real-world applications of generalized robotics and other decision-making
+systems. Although this study significantly improves adaptation robustness, adaptation failures remain possible, potentially leading to serious consequences in real-world scenarios. Thus, human supervision remains essential.
+Acknowledgments and Disclosure of Funding
+This work is funded by National Natural Science Foundation of China (NSFC) with the Number # 62306326
+and the National Key R&D Program of China under Grant
+2018AAA0102801. We thank all reviewers for their positive
+comments and constructive suggestions in this work.
+References
+Abbas, M., Xiao, Q., Chen, L., Chen, P.-Y., and Chen,
+T. Sharp-maml: Sharpness-aware model-agnostic meta
+learning. In International conference on machine learning, pp. 10–32. PMLR, 2022.
+Asmuth, J., Li, L., Littman, M. L., Nouri, A., and Wingate,
+D. A bayesian sampling approach to exploration in reinforcement learning. arXiv preprint arXiv:1205.2664,
+2012.
+9
+PDTS for Adaptive Decision-Makers in Randomized Environments
+Auer, P. Finite-time analysis of the multiarmed bandit problem, 2002a.
+Auer, P. Using confidence bounds for exploitationexploration trade-offs. Journal of Machine Learning
+Research, 3(Nov):397–422, 2002b.
+Beck, J., Vuorio, R., Liu, E. Z., Xiong, Z., Zintgraf, L., Finn,
+C., and Whiteson, S. A survey of meta-reinforcement
+learning. arXiv preprint arXiv:2301.08028, 2023.
+Borodin, A., Jain, A., Lee, H. C., and Ye, Y. Max-sum diversification, monotone submodular functions, and dynamic
+updates. ACM Transactions on Algorithms (TALG), 13
+(3):1–25, 2017.
+Broderick, T., Boyd, N., Wibisono, A., Wilson, A. C., and
+Jordan, M. I. Streaming variational bayes. Advances in
+neural information processing systems, 26, 2013.
+Carlini, N., Athalye, A., Papernot, N., Brendel, W., Rauber,
+J., Tsipras, D., Goodfellow, I., Madry, A., and Kurakin,
+A. On evaluating adversarial robustness. arXiv preprint
+arXiv:1902.06705, 2019.
+Carpentier, A. and Valko, M. Simple regret for infinitely
+many armed bandits. In International Conference on
+Machine Learning, pp. 1133–1141. PMLR, 2015.
+Carpin, S., Chow, Y.-L., and Pavone, M. Risk aversion in
+finite markov decision processes using total cost criteria
+and average value at risk. In 2016 ieee international
+conference on robotics and automation (icra), pp. 335–
+342. IEEE, 2016.
+Catto, E. Box2d: A 2d physics engine for games, 2007.
+URL http://box2d.org.
+Chi, H., Liu, F., Yang, W., Lan, L., Liu, T., Han, B., Cheung,
+W., and Kwok, J. Tohan: A one-step approach towards
+few-shot hypothesis adaptation. Advances in Neural Information Processing Systems, 34:20970–20982, 2021.
+Chi, H., Li, H., Yang, W., Liu, F., Lan, L., Ren, X., Liu, T.,
+and Han, B. Unveiling causal reasoning in large language
+models: Reality or mirage? Advances in Neural Information Processing Systems, 37:96640–96670, 2024a.
+Chi, H., Yang, W., Liu, F., Lan, L., Qin, T., and Han, B. Does
+confusion really hurt novel class discovery? International
+Journal of Computer Vision, 132(8):3191–3207, 2024b.
+Chow, Y. Risk-sensitive and data-driven sequential decision
+making. PhD thesis, Stanford University, 2017.
+Chow, Y., Tamar, A., Mannor, S., and Pavone, M. Risksensitive and robust decision-making: a cvar optimization
+approach. Advances in neural information processing
+systems, 28, 2015.
+Chow, Y., Ghavamzadeh, M., Janson, L., and Pavone, M.
+Risk-constrained reinforcement learning with percentile
+risk criteria. Journal of Machine Learning Research, 18
+(167):1–51, 2018.
+Chow, Y., Nachum, O., Faust, A., Duenez-Guzman, E., and ˜
+Ghavamzadeh, M. Safe policy learning for continuous
+control. In Conference on Robot Learning, pp. 801–821.
+PMLR, 2021.
+Cohn, D. A., Ghahramani, Z., and Jordan, M. I. Active
+learning with statistical models. Journal of artificial
+intelligence research, 4:129–145, 1996.
+Collins, L., Mokhtari, A., and Shakkottai, S. Task-robust
+model-agnostic meta-learning. Advances in Neural Information Processing Systems, 33:18860–18871, 2020.
+Coumans, E. Bullet physics simulation. In ACM SIGGRAPH 2015 Courses, pp. 1. 2015.
+Dennis, M., Jaques, N., Vinitsky, E., Bayen, A., Russell,
+S., Critch, A., and Levine, S. Emergent complexity and
+zero-shot transfer via unsupervised environment design.
+Advances in neural information processing systems, 33:
+13049–13061, 2020.
+Duan, Y., Schulman, J., Chen, X., Bartlett, P. L., Sutskever,
+I., and Abbeel, P. Rl2: Fast reinforcement learning via slow reinforcement learning. arXiv preprint
+arXiv:1611.02779, 2016.
+Finn, C., Abbeel, P., and Levine, S. Model-agnostic metalearning for fast adaptation of deep networks. In International conference on machine learning, pp. 1126–1135.
+PMLR, 2017.
+Finn, C., Xu, K., and Levine, S. Probabilistic modelagnostic meta-learning. Advances in neural information
+processing systems, 31, 2018.
+Fujimoto, S., Hoof, H., and Meger, D. Addressing function
+approximation error in actor-critic methods. In International conference on machine learning, pp. 1587–1596.
+PMLR, 2018.
+Gal, Y., Islam, R., and Ghahramani, Z. Deep bayesian active
+learning with image data. In International conference on
+machine learning, pp. 1183–1192. PMLR, 2017.
+Garivier, A. and Moulines, E. On upper-confidence bound
+policies for non-stationary bandit problems. arXiv
+preprint arXiv:0805.3415, 2008.
+Garnelo, M., Schwarz, J., Rosenbaum, D., Viola, F.,
+Rezende, D. J., Eslami, S., and Teh, Y. W. Neural processes. arXiv preprint arXiv:1807.01622, 2018.
+10
+PDTS for Adaptive Decision-Makers in Randomized Environments
+Gondal, M. W., Gast, J., Ruiz, I. A., Droste, R., Macri, T.,
+Kumar, S., and Staudigl, L. Domain aligned clip for
+few-shot classification. In Proceedings of the IEEE/CVF
+Winter Conference on Applications of Computer Vision,
+pp. 5721–5730, 2024.
+Greenberg, I., Chow, Y., Ghavamzadeh, M., and Mannor, S.
+Efficient risk-averse reinforcement learning. Advances
+in Neural Information Processing Systems, 35:32639–
+32652, 2022.
+Greenberg, I., Mannor, S., Chechik, G., and Meirom, E.
+Train hard, fight easy: Robust meta reinforcement learning. Advances in Neural Information Processing Systems,
+36, 2024.
+Gupta, A., Mendonca, R., Liu, Y., Abbeel, P., and Levine,
+S. Meta-reinforcement learning of structured exploration
+strategies. Advances in neural information processing
+systems, 31, 2018.
+Hong, Z.-W., Kumar, A., Karnik, S., Bhandwaldar, A., Srivastava, A., Pajarinen, J., Laroche, R., Gupta, A., and
+Agrawal, P. Beyond uniform sampling: Offline reinforcement learning with imbalanced datasets. Advances in
+Neural Information Processing Systems, 36:4985–5009,
+2023.
+Hospedales, T., Antoniou, A., Micaelli, P., and Storkey,
+A. Meta-learning in neural networks: A survey. IEEE
+transactions on pattern analysis and machine intelligence,
+44(9):5149–5169, 2021.
+Jiang, M., Dennis, M., Parker-Holder, J., Foerster, J., Grefenstette, E., and Rocktaschel, T. Replay-guided adversarial ¨
+environment design. Advances in Neural Information
+Processing Systems, 34:1884–1897, 2021.
+Kingma, D. P. and Welling, M. Auto-encoding variational
+bayes. arXiv preprint arXiv:1312.6114, 2013.
+Kirsch, A., Van Amersfoort, J., and Gal, Y. Batchbald: Efficient and diverse batch acquisition for deep bayesian
+active learning. Advances in neural information processing systems, 32, 2019.
+Koh, P. W., Sagawa, S., Marklund, H., Xie, S. M., Zhang,
+M., Balsubramani, A., Hu, W., Yasunaga, M., Phillips,
+R. L., Gao, I., et al. Wilds: A benchmark of in-thewild distribution shifts. In International conference on
+machine learning, pp. 5637–5664. PMLR, 2021.
+Koprulu, C., Simao, T. D., Jansen, N., and Topcu, U. Risk- ˜
+aware curriculum generation for heavy-tailed task distributions. In Uncertainty in Artificial Intelligence, pp.
+1132–1142. PMLR, 2023.
+Levine, S., Kumar, A., Tucker, G., and Fu, J. Offline reinforcement learning: Tutorial, review, and perspectives on
+open problems. arXiv preprint arXiv:2005.01643, 2020.
+Li, L., Yang, R., and Luo, D. Focal: Efficient fullyoffline meta-reinforcement learning via distance metric learning and behavior regularization. arXiv preprint
+arXiv:2010.01112, 2020.
+Linsmeier, T. J. and Pearson, N. D. Value at risk. Financial
+analysts journal, 56(2):47–67, 2000.
+Lv, Y., Wang, C., Liang, D., and Xie, Z. Theoretical investigations and practical enhancements on tail task risk minimization in meta learning. In The Thirty-eighth Annual
+Conference on Neural Information Processing Systems,
+2024. URL https://openreview.net/forum?
+id=McrzOo0hwr.
+Ma, Y. J., Liang, W., Wang, H.-J., Wang, S., Zhu, Y., Fan,
+L., Bastani, O., and Jayaraman, D. Dreureka: Language model guided sim-to-real transfer. arXiv preprint
+arXiv:2406.01967, 2024.
+Mahajan, A. and Teneketzis, D. Multi-armed bandit problems. In Foundations and applications of sensor management, pp. 121–151. Springer, 2008.
+Mao, Y., Zhang, H., Chen, C., Xu, Y., and Ji, X. Supported
+value regularization for offline reinforcement learning.
+Advances in Neural Information Processing Systems, 36:
+40587–40609, 2023a.
+Mao, Y., Zhang, H., Chen, C., Xu, Y., and Ji, X. Supported
+trust region optimization for offline reinforcement learning. In International Conference on Machine Learning,
+pp. 23829–23851. PMLR, 2023b.
+Mao, Y., Wang, Q., Chen, C., Qu, Y., and Ji, X. Offline
+reinforcement learning with ood state correction and ood
+action suppression. arXiv preprint arXiv:2410.19400,
+2024a.
+Mao, Y., Wang, Q., Qu, Y., Jiang, Y., and Ji, X. Doubly mild
+generalization for offline reinforcement learning. arXiv
+preprint arXiv:2411.07934, 2024b.
+Mehta, B., Diaz, M., Golemo, F., Pal, C. J., and Paull, L.
+Active domain randomization. In Conference on Robot
+Learning, pp. 1162–1176. PMLR, 2020.
+Mukhoti, J., Kirsch, A., van Amersfoort, J., Torr, P. H., and
+Gal, Y. Deep deterministic uncertainty: A new simple
+baseline. In Proceedings of the IEEE/CVF Conference
+on Computer Vision and Pattern Recognition, pp. 24384–
+24394, 2023.
+11
+PDTS for Adaptive Decision-Makers in Randomized Environments
+Muratore, F., Treede, F., Gienger, M., and Peters, J. Domain
+randomization for simulation-based policy optimization
+with transferability assessment. In Conference on Robot
+Learning, pp. 700–713. PMLR, 2018.
+Muratore, F., Eilers, C., Gienger, M., and Peters, J. Dataefficient domain randomization with bayesian optimization. IEEE Robotics and Automation Letters, 6(2):911–
+918, 2021.
+Nguyen, C. V., Li, Y., Bui, T. D., and Turner,
+R. E. Variational continual learning. arXiv preprint
+arXiv:1710.10628, 2017.
+Osband, I., Russo, D., and Van Roy, B. (more) efficient
+reinforcement learning via posterior sampling. Advances
+in Neural Information Processing Systems, 26, 2013.
+Pan, X., Seita, D., Gao, Y., and Canny, J. Risk averse
+robust adversarial reinforcement learning. In 2019 International Conference on Robotics and Automation (ICRA),
+pp. 8522–8528. IEEE, 2019.
+Puterman, M. L. Markov decision processes: discrete
+stochastic dynamic programming. John Wiley & Sons,
+2014.
+Qi, Y., Ban, Y., Wei, T., Zou, J., Yao, H., and He, J. Metalearning with neural bandit scheduler. Advances in Neural
+Information Processing Systems, 36, 2024.
+Qu, Y., Wang, B., Shao, J., Jiang, Y., Chen, C., Ye, Z., Linc,
+L., Feng, Y., Lai, L., Qin, H., et al. Hokoff: Real game
+dataset from honor of kings and its offline reinforcement
+learning benchmarks. Advances in Neural Information
+Processing Systems, 36:22166–22190, 2023.
+Qu, Y., Wang, B., Jiang, Y., Shao, J., Mao, Y., Wang, C.,
+Liu, C., and Ji, X. Choices are more important than
+efforts: Llm enables efficient multi-agent exploration.
+arXiv preprint arXiv:2410.02511, 2024.
+Qu, Y., Jiang, Y., Wang, B., Mao, Y., Wang, C., Liu, C., and
+Ji, X. Latent reward: Llm-empowered credit assignment
+in episodic reinforcement learning. In Proceedings of the
+AAAI Conference on Artificial Intelligence, volume 39,
+pp. 20095–20103, 2025.
+Rajeswaran, A., Finn, C., Kakade, S. M., and Levine, S.
+Meta-learning with implicit gradients. Advances in neural
+information processing systems, 32, 2019.
+Rakelly, K., Zhou, A., Finn, C., Levine, S., and Quillen, D.
+Efficient off-policy meta-reinforcement learning via probabilistic context variables. In International conference on
+machine learning, pp. 5331–5340. PMLR, 2019.
+Rempe, D., Philion, J., Guibas, L. J., Fidler, S., and Litany,
+O. Generating useful accident-prone driving scenarios via
+a learned traffic prior. In Proceedings of the IEEE/CVF
+Conference on Computer Vision and Pattern Recognition,
+pp. 17305–17315, 2022.
+Ren, P., Xiao, Y., Chang, X., Huang, P.-Y., Li, Z., Gupta,
+B. B., Chen, X., and Wang, X. A survey of deep active
+learning. ACM computing surveys (CSUR), 54(9):1–40,
+2021.
+Rigter, M., Lacerda, B., and Hawes, N. Risk-averse bayesadaptive reinforcement learning. Advances in Neural
+Information Processing Systems, 34:1142–1154, 2021.
+Ritter, S., Wang, J., Kurth-Nelson, Z., Jayakumar, S., Blundell, C., Pascanu, R., and Botvinick, M. Been there, done
+that: Meta-learning with episodic recall. In International
+conference on machine learning, pp. 4354–4363. PMLR,
+2018.
+Rockafellar, R. T., Uryasev, S., et al. Optimization of conditional value-at-risk. Journal of risk, 2:21–42, 2000.
+Russo, D. and Van Roy, B. Learning to optimize via posterior sampling. Mathematics of Operations Research, 39
+(4):1221–1243, 2014.
+Sagawa, S., Koh, P. W., Hashimoto, T. B., and Liang, P.
+Distributionally robust neural networks. In International
+Conference on Learning Representations, 2019.
+Schulman, J., Wolski, F., Dhariwal, P., Radford, A., and
+Klimov, O. Proximal policy optimization algorithms.
+arXiv preprint arXiv:1707.06347, 2017.
+Setlur, A., Garg, S., Smith, V., and Levine, S. Prompting
+is a double-edged sword: Improving worst-group robustness of foundation models. In Forty-first International
+Conference on Machine Learning, 2024.
+Shao, J., Qu, Y., Chen, C., Zhang, H., and Ji, X. Counterfactual conservative q learning for offline multi-agent
+reinforcement learning. Advances in Neural Information
+Processing Systems, 36:77290–77312, 2023a.
+Shao, J., Zhang, H., Qu, Y., Liu, C., He, S., Jiang, Y., and
+Ji, X. Complementary attention for multi-agent reinforcement learning. In International Conference on Machine
+Learning, pp. 30776–30793. PMLR, 2023b.
+Sutton, R. S. and Barto, A. G. Reinforcement learning: An
+introduction. MIT press, 2018.
+Tamar, A., Chow, Y., Ghavamzadeh, M., and Mannor, S.
+Policy gradient for coherent risk measures. Advances in
+neural information processing systems, 28, 2015.
+12
+PDTS for Adaptive Decision-Makers in Randomized Environments
+Tao, S., Xiang, F., Shukla, A., Qin, Y., Hinrichsen, X.,
+Yuan, X., Bao, C., Lin, X., Liu, Y., Chan, T.-k., et al.
+Maniskill3: Gpu parallelized robotics simulation and
+rendering for generalizable embodied ai. arXiv preprint
+arXiv:2410.00425, 2024.
+Thompson, W. R. On the likelihood that one unknown
+probability exceeds another in view of the evidence of
+two samples. Biometrika, 25(3-4):285–294, 1933.
+Tiboni, G., Klink, P., Peters, J., Tommasi, T., D’Eramo, C.,
+and Chalvatzaki, G. Domain randomization via entropy
+maximization. arXiv preprint arXiv:2311.01885, 2023.
+Tobin, J., Fong, R., Ray, A., Schneider, J., Zaremba, W.,
+and Abbeel, P. Domain randomization for transferring
+deep neural networks from simulation to the real world.
+In 2017 IEEE/RSJ international conference on intelligent
+robots and systems (IROS), pp. 23–30. IEEE, 2017.
+Todorov, E., Erez, T., and Tassa, Y. Mujoco: A physics
+engine for model-based control. In 2012 IEEE/RSJ international conference on intelligent robots and systems, pp.
+5026–5033. IEEE, 2012.
+Vapnik, V. N., Vapnik, V., et al. Statistical learning theory.
+1998.
+Wang, B., Qu, Y., Jiang, Y., Shao, J., Liu, C., Yang, W.,
+and Ji, X. Llm-empowered state representation for reinforcement learning. arXiv preprint arXiv:2407.13237,
+2024a.
+Wang, C., Lv, Y., Mao, Y., Qu, Y., Xu, Y., and Ji, X. Robust
+fast adaptation from adversarially explicit task distribution generation. arXiv preprint arXiv:2407.19523, 2024b.
+Wang, Q. and Van Hoof, H. Doubly stochastic variational inference for neural processes with hierarchical latent variables. In International Conference on Machine Learning,
+pp. 10018–10028. PMLR, 2020.
+Wang, Q. and Van Hoof, H. Learning expressive metarepresentations with mixture of expert neural processes.
+Advances in neural information processing systems, 35:
+26242–26255, 2022a.
+Wang, Q. and Van Hoof, H. Model-based meta reinforcement learning using graph structured surrogate models
+and amortized policy search. In International Conference
+on Machine Learning, pp. 23055–23077. PMLR, 2022b.
+Wang, Q., Federici, M., and van Hoof, H. Bridge the inference gaps of neural processes via expectation maximization. In The Eleventh International Conference on
+Learning Representations, 2022.
+Wang, Q., Federici, M., and van Hoof, H. Bridge the inference gaps of neural processes via expectation maximization. In The Eleventh International Conference on
+Learning Representations, 2023a.
+Wang, Q., Lv, Y., Xie, Z., Huang, J., et al. A simple yet
+effective strategy to robustify the meta learning paradigm.
+Advances in Neural Information Processing Systems, 36,
+2024c.
+Wang, Q. C., Xiao, Z., Mao, Y., Qu, Y., Shen, J., Lv,
+Y., and Ji, X. Beyond any-shot adaptation: Predicting
+optimization outcome for robustness gains without extra pay, 2025a. URL https://arxiv.org/abs/
+2501.11039.
+Wang, Q. C., Xiao, Z., Mao, Y., Qu, Y., Shen, J., Lv, Y.,
+and Ji, X. Model predictive task sampling for efficient
+and robust adaptation, 2025b. URL https://arxiv.
+org/abs/2501.11039.
+Wang, Y., Mathioudakis, M., Li, J., and Fabbri, F. Maxmin diversification with fairness constraints: Exact and
+approximation algorithms. In Proceedings of the 2023
+SIAM International Conference on Data Mining (SDM),
+pp. 91–99. SIAM, 2023b.
+Wu, J., Chen, J., and Huang, D. Entropy-based active
+learning for object detection with progressive diversity
+constraint. In Proceedings of the IEEE/CVF Conference
+on Computer Vision and Pattern Recognition, pp. 9397–
+9406, 2022.
+Xu, F., Jiang, S., Yin, H., Zhang, Z., Yu, Y., Li, M., Li, D.,
+and Liu, W. Enhancing context-based meta-reinforcement
+learning algorithms via an efficient task encoder (student
+abstract). In Proceedings of the AAAI Conference on Artificial Intelligence, volume 35, pp. 15937–15938, 2021.
+Yoon, J., Kim, T., Dia, O., Kim, S., Bengio, Y., and Ahn,
+S. Bayesian model-agnostic meta-learning. Advances in
+neural information processing systems, 31, 2018.
+Zhang, H., Mao, Y., Wang, B., He, S., Xu, Y., and Ji, X.
+In-sample actor critic for offline reinforcement learning.
+In The Eleventh International Conference on Learning
+Representations, 2023.
+Zhu, X., Lafferty, J., and Ghahramani, Z. Combining active learning and semi-supervised learning using gaussian
+fields and harmonic functions. In ICML 2003 workshop
+on the continuum from labeled to unlabeled data in machine learning and data mining, volume 3, pp. 58–65,
+2003.
+Zintgraf, L., Shiarlis, K., Igl, M., Schulze, S., Gal, Y., Hofmann, K., and Whiteson, S. Varibad: A very good method
+for bayes-adaptive deep rl via meta-learning. arXiv
+preprint arXiv:1910.08348, 2019.
+13
+PDTS for Adaptive Decision-Makers in Randomized Environments
+A. Adaptive Decision-Making in Randomized Environments
+A.1. Zero-Shot and Few-Shot Sequential Decision-Making
+In this part, we include typical MDPs and distributions, which align with randomized environments for sequential decisionmaking. Meanwhile, we show examples of DR and Meta-RL in this context, which can well specify the form of the
+task-specific adaptation risk ℓ in zero-shot and a few-shot setup.
+Definition A.1 (Identifier-Induced MDP Distribution). We consider a distribution over MDPs p(Mτ ) induced by the
+identifier distribution p(τ ). Here, the MDP as the sequential decision-making environment can be characterized as
+Mτ =< S, A, Pτ , Rτ , γ >, where S and A are the state and the action space shared across all MDPs.
+MDPs vary in either the transition dynamics Pτ := pτ (st+1|st, at) or the reward function Rτ :=
+Rτ (st, at) or the both, specified by corresponding identifiers τ . The H-horizon rollout under a policy is
+(s0, a0, R(s0, a0), . . . , sH−1, aH−1, R(sH−1, aH−1), sH) with its cumulative reward PH−1
+t=0 γ
+tR(st, at) and γ ∈ R
++.
+With Definition A.1, we can provide some instantiations of DR and Meta-RL under specific policy optimization backbones.
+Meta-RL with Model Agnostic Meta Learning. Meta-RL seeks to train agents capable of rapidly adapting to new tasks or
+environments by utilizing knowledge from related tasks. We adopt MAML (Finn et al., 2017) as the standard backbone
+algorithm due to its widespread application in addressing few-shot sequential decision-making problems. This also retains
+the same configuration in MPTS (Wang et al., 2025b). The optimization objective of MAML is mathematically defined as:
+min
+θ∈Θ
+Ep(τ)
+
+ℓ
+
+DQ
+τ
+; θ − λ∇θℓ
+
+DS
+τ
+; θ
+ (13a)
+min
+θ∈Θ
+Ep(τ)
+"
+−Eπθ′ ,DQ
+τ
+"X
+H
+t=0
+γ
+t
+rt
+#
+; θ
+′ = θ − λ∇θ
+
+−Eπθ,DS
+τ
+"X
+H
+t=0
+γ
+t
+rt
+#!# , (13b)
+where Dτ denotes episodes collected from MDPs specified by τ under either the meta-policy or the fast-adapted policy. The
+term inside the brackets specifies the adaptation risk ℓ(DQ
+τ
+, DS
+τ
+; θ), which represents either the negative cumulative returns
+or the negative final rewards. The expression θ − λ∇θℓ(DS
+τ
+; θ) indicates the gradient update for fast task adaptation, where
+λ is the learning rate. Upon completion of meta-training, the resulting meta-policy θ can be generalized across the task
+space.
+Robotics Domain Randomization. Robotics domain randomization refers to a training paradigm in which an agent is
+trained across a collection of diverse environments to develop a generalizable policy. The diversity of these environments
+enhances the robustness of the resulting policy during deployment. Notably, this approach eliminates the need for few-shot
+episodes in unseen but similar environments. Mathematically, the optimization objective can be expressed as:
+max
+θ∈Θ
+J(θ) := Eπθ Ep(τ)
+"X
+H
+t=0
+γ
+t
+rt
+#
+, (14)
+where p(τ ) denotes the distribution over MDPs specified by τ , and {rt}
+H
+t=0 represents the stepwise rewards obtained from
+interacting with a specific MDP, with H as the horizon.
+After solving the optimization problem in Eq. (14), the resulting policy πθ serves as a zero-shot decision-maker in new
+environments. In this context, the adaptation risk can be expressed as ℓ(DQ
+τ
+, DS
+τ
+; θ) = −
+PH
+t=0 γ
+t
+rt. For physical domain
+randomization, policy optimization utilizes the TD3 algorithm (Fujimoto et al., 2018), an off-policy method known for its
+sample efficiency and stability. For visual domain randomization, we employ the PPO algorithm (Schulman et al., 2017), an
+on-policy method recommended by ManiSkill3 (Tao et al., 2024).
+A.2. Pseudo Algorithm in Meta-RL and DR
+In this part, we show how PDTS is incorporated in DR and Meta-RL. These are Algorithm 2/3 and Algorithm 4/5.
+
+PDTS for Adaptive Decision-Makers in Randomized Environments
+Algorithm 2 PDTS for Domain Randomization (Zero-Shot
+Scenarios)
+Input :Task distribution p(τ ); Task batch size B; Learning rate λ1.
+Output :Adapted policy θ.
+Set the initial iteration number t = 1;
+Randomly initialize policy θ;
+Randomly initialize risk learner {ψ, ϕ};
+while not converged do
+Execute Algorithm 3 to access the task batch {τt,i}
+B
+i=1;
+Sample trajectories for each task with policy θ to induce
+{DQ
+τt,i
+}
+B
+i=1;
+// Eval Adaptation Performance
+Compute the task specific adaptation risk {ℓt,i :=
+−Eπθ,DQ
+τt,i hPH
+t=0 γ
+t
+rt
+i
+}
+B
+i=1;
+Return Ht = {[τt,i, ℓt,i]}
+B
+i=1 as the Input to Algorithm
+3;
+// Update Policy
+Perform batch gradient updates:
+θt+1 ← θt −
+λ1
+B
+PB
+i=1 ∇θℓt,i;
+Update the iteration number: t ← t + 1;
+end
+Algorithm 3 Posterior-Diversity Synergized Task Sampling
+Input :Task distribution p(τ ); Task batch size B; Candidate batch size Bˆ ; Latest updated {ψ, ϕ}; Latest
+history Ht−1; Iteration number K; Learning rate
+λ2.
+Output :Selected task identifier batch {τt,i}
+B
+i=1.
+// Optimize Risk Predictive Module
+for i = 1 to K do
+Perform gradient updates given Ht−1:
+ϕ ← ϕ + λ2∇ϕGELBO(ψ, ϕ) in Eq. (5);
+ψ ← ψ + λ2∇ψGELBO(ψ, ϕ) in Eq. (5);
+end
+// Simulating After-Adaptation Results
+Randomly sample {τˆt,i}
+Bˆ
+i=1 from p(τ );
+// Posterior Sampling Outcome
+Amortized evaluation {
+ˆℓt,i}
+Bˆ
+i=1 with one stochastic forward
+pass for all candidate tasks through executing Eq. (12)a-b;
+// Diversity-Guided Subset Search
+Run approximate algorithms to solve Eq. (12)c;
+Return the screened subset {τt,i}
+B
+i=1 for next iteration.
+Algorithm 4 PDTS for Model Agnostic Meta Learning
+(Few-Shot Scenarios: Meta-RL, Sinusoid Regression)
+Input :Task distribution p(τ ); Task batch size B; Learning rates: {λ1,1, λ1,2}.
+Output :Meta-trained initialization θ
+meta
+.
+Set the initial iteration number t = 1;
+Randomly initialize meta policy θ
+meta;
+Randomly initialize risk learner {ψ, ϕ};
+while not converged do
+Execute Algorithm 5 to access the batch {τt,i}
+B
+i=1;
+Sample trajectories for each task with policy θ
+meta to
+induce {DS
+τt,i
+}
+B
+i=1;
+// Inner Loop to Fast Adapt
+for i = 1 to K do
+Compute the task-specific adaptation risk:
+ℓ(DS
+τt,i
+; θ) = −Eπθ,DS
+τt,i hPH
+t=0 γ
+t
+rt
+i
+;
+Perform gradient updates as fast adaptation:
+θ
+i
+t ← θ
+meta
+t − λ1,1∇θℓ(DS
+τi
+; θ);
+Sample trajectories DQ
+τt,i with policy θ
+i
+t
+for task τi
+;
+end
+// Outer Loop to Meta-train
+Evaluate fast adaptation performance {ℓt,i :=
+−Eπθi
+t
+,DQ
+τt,i hPH
+t=0 γ
+t
+rt
+i
+}
+B
+i=1;
+Return Ht = {[τt,i, ℓt,i]}
+B
+i=1 as the Input to Algorithm
+5;
+Perform meta initialization updates:
+θ
+meta
+t+1 ← θ
+meta
+t −
+λ1,2
+B
+PB
+i=1 ∇θℓt,i;
+Update the iteration number: t ← t + 1;
+end
+Algorithm 5 Posterior-Diversity Synergized Task Sampling
+Input :Task distribution p(τ ); Task batch size B; Candidate batch size Bˆ ; Latest updated {ψ, ϕ}; Latest
+history Ht−1; Iteration number K; Learning rate
+λ2.
+Output :Selected task identifier batch {τt,i}
+B
+i=1.
+// Optimize Risk Predictive Module
+for i = 1 to K do
+Perform gradient updates given Ht−1:
+ϕ ← ϕ + λ2∇ϕGELBO(ψ, ϕ) in Eq. (5);
+ψ ← ψ + λ2∇ψGELBO(ψ, ϕ) in Eq. (5);
+end
+// Simulating After-Adaptation Results
+Randomly sample {τˆt,i}
+Bˆ
+i=1 from p(τ );
+// Posterior Sampling Outcome
+Amortized evaluation {
+ˆℓt,i}
+Bˆ
+i=1 with one stochastic forward
+pass for all candidate tasks through executing Eq. (12)a-b;
+// Diversity-Guided Subset Search
+Run approximate algorithms to solve Eq. (12)c;
+Return the screened subset {τt,i}
+B
+i=1 for next iteration.
+15
+PDTS for Adaptive Decision-Makers in Randomized Environments
+A.3. Related Work
+Risk-Averse Methods and Robustness Evaluation. Real-world decision-making scenarios are risk-sensitive (Chow et al.,
+2021), and this makes robust optimization an indispensable component of policy optimization (Tamar et al., 2015; Chow
+et al., 2015; Chow, 2017; Chow et al., 2018; Pan et al., 2019; Rigter et al., 2021; Greenberg et al., 2022). Recent advances
+turn to some risk-averse measures to improve robustness in the task distribution. These are detailed in Section 2.1, which
+includes the DRM (Lv et al., 2024; Wang et al., 2024c), GDRM (Sagawa et al., 2019), and MPTS (Wang et al., 2025b).
+The existing worst-case optimization in meta-learning is (Collins et al., 2020), which relies on special relaxation tricks;
+otherwise, the optimization can be unstable. Besides, other inspiring robust methods in task sampling (Qi et al., 2024)
+have not been applied in DR or Meta-RL. As MPTS is the latest SOTA RATS method, we mainly compared PDTS with
+it in experiments. RoML (Greenberg et al., 2024) also considers the CVaR optimization in Meta-RL; hence, we include
+some comparisons given the PEARL (Rakelly et al., 2019) backbone. In terms of evaluation, the subpopulation shift and
+out-of-distribution scenarios are commonly used in the field (Koh et al., 2021).
+Cross-Task Adaptation in Sequential Decision-Making. This work focuses on the zero-shot and few-shot decision-making
+scenarios. In zero-shot decision-making, the primary technique is to randomize the environments and train the agent in the
+distribution over environments, which is called domain randomization (Tobin et al., 2017; Muratore et al., 2018; Mehta et al.,
+2020; Muratore et al., 2021; Tiboni et al., 2023). Meta-learning is a promising paradigm for achieving few-shot adaptation to
+unseen tasks, avoiding learning from scratch (Hospedales et al., 2021). The secret behind its few-shot adaptation capability
+is to leverage past experience and consolidate these as the prior for fast problem-solving. There are three primary types of
+policy adaptation methods that can be seamlessly incorporated into deep RL scenarios. (i) The optimization-based methods
+aim to seek a robust meta-initialization of the model that can be adapted to unseen scenarios through fine-tuning (Finn
+et al., 2017; 2018; Abbas et al., 2022; Rajeswaran et al., 2019; Yoon et al., 2018; Gupta et al., 2018; Qi et al., 2024). (ii)
+The context-based methods mostly adopt an encoder and decoder structure in policy networks (Xu et al., 2021; Wang
+& Van Hoof, 2022a;b; Rakelly et al., 2019; Zintgraf et al., 2019; Li et al., 2020). The encoder summarizes the support
+trajectories into a latent variable to guide the policy adaptation. (ii) The recurrent methods mainly employ a recurrent neural
+network to encode the sequential decision-making episodes as the adaptation prior (Duan et al., 2016; Ritter et al., 2018).
+All of these zero-shot or few-shot learning is performed in a task episodic way, which means that a batch of MDPs are
+resampled in each iteration to train the adaptive policy during DR and Meta-RL.
+Curriculum learning is also a crucial topic related to adaptive decision-making. Dennis et al. (2020) develop unsupervised
+environment design (UED) as a novel paradigm for environment distribution generation and achieve SOTA zero-shot
+transfer. Jiang et al. (2021) cast prioritized level replay to enhance UED and formulate dual curriculum design for improving
+OOD and zero-shot performance. In (Koprulu et al., 2023), heavy-tailed distributions are incorporated into the automated
+curriculum, which leads to robustness improvement. Wang et al. (2024b) propose to generate task distributions for meta-RL
+through adversarial training normalizing flows, which provides a data-driven experimental design pipeline for increasing
+adaptation robustness. In contrast, our work emphasizes robust task adaptation under a fixed task distribution. Integrating
+the idea of surrogate evaluation from PDTS into curriculum design could be an interesting direction for future research.
+A.4. CVaRα as Risk-Averse Metrics
+Definition A.2 (CVaRα). With θ-parameterized model, e.g., a deep RL policy, we can induce a random variable ℓi
+:=
+ℓ(DQ
+τi
+, DS
+τi
+; θ) from p(τ ). Then, we can define the cumulative adaptation risk distribution and its quantile by F(ℓ) and
+ℓ
+α = minℓ{ℓ|F(ℓ) ≥ α}. Following (Rockafellar et al., 2000), CVaR at α-level robustness can be expressed as:
+CVaRα[ℓ(T; θ)] = Z
+ℓdF α
+(ℓ; θ), (15)
+Accordingly, the normalized tail risk task distribution is
+F
+α
+(ℓ; θ) = (
+0, l < ℓα
+F (ℓ;θ)−α
+1−α
+, l ≥ ℓ
+α,
+(16)
+with pα(τ ; θ) as its probability density function.
+Assumption 1 (Lipschitz Continuity). The adaptation risk function ℓ(·; θ) is βτ -Lipschitz continuous w.r.t. θ and βθ16
+PDTS for Adaptive Decision-Makers in Randomized Environments
+Lipschitz w.r.t. τ , i.e.,
+|ℓ(DQ
+τ
+, DS
+τ
+; θ) − ℓ(DQ
+τ
+, DS
+τ
+; θ
+′
+)| ≤ βτ ||θ − θ
+′
+||
+|ℓ(DQ
+τ
+, DS
+τ
+; θ) − ℓ(D
+Q
+τ
+′ , DS
+τ
+′ ; θ)| ≤ βθ||τ − τ
+′
+||,
+(17)
+where ∀{θ, θ
+′} ∈ Θ and ∀{τ , τ
+′} ∈ T.
+Assumption 2 (Bounded Functions). Given arbitrary θ ∈ Θ and the task τ ∈ T, the adaptation risk function ℓ(·; θ) satisfies:
+max
+τ∈T
+ℓ(DQ
+τ
+, DS
+τ
+; θ) ≤ ℓmax. (18)
+CVaRα is a risk-averse measure in computational finance and management science (Linsmeier & Pearson, 2000; Rockafellar
+et al., 2000), and we write it in the Definition A.2. As for Assumptions 1 and 2, these are commonly seen in analysis (Lv
+et al., 2024; Wang et al., 2024c) and are also necessary to MPTS and PDTS. These constitute the predictability of the
+adaptation risk value over iterations as the relative task difficulty remains invariant after the model’s parameter is perturbed a
+bit.
+A.5. Details in Risk Predictive Modules
+As introduced in Section 2.2, a key feature of RATS is its use of risk predictive models, e.g., p(ℓ|τ , H1:t; θt), as surrogates
+for expensive evaluations. To the best of our knowledge, MPTS (Wang et al., 2025b) is the first to develop such a model
+for robust optimization. As introduced in Section 2.2, MPTS leverages generative modeling for adaptation optimization
+and employs approximate posterior inference to forecast adaptation risk values after one-step optimization. Since small
+deviations in the machine learner’s parameters do not alter the relative difficulty scores within the task batch, this provides a
+tractable approach to coarse-grained task difficulty evaluation. The probabilistic graphical model is provided in Fig. 7.
+Empirically, a series of evaluation on DR and Meta-RL in (Wang et al., 2025b) has validated the plausibility of such a
+schema. Particularly, it achieves high Pearson correlation coefficient (PCC) values between the risk learner’s predicted
+adaptation risk values, {
+¯ℓt+1,i :≈ Eqϕ(zt|Ht)
+[pψ(ℓ|τt+1,i, H1:t)]}
+B
+i=1 and the corresponding exact adaptation risk values
+{ℓt+1,i}
+B
+i=1, indicating the risk predictive model’s ability to score difficulty. The Pearson correlation coefficient value is
+computed as ρℓ,ℓ ¯ :=
+PB
+i=1(ℓ¯t+1,i−Mean[{ℓ¯t+1,.}])(ℓt+1,i−Mean[{ℓt+1,.}])
+√PB
+i=1(ℓ¯t+1,i−Mean[{ℓ¯t+1,.}])2
+√PB
+i=1(ℓt+1,i−Mean[{ℓt+1,.}])2
+.
+...
+Figure 7. The probabilistic graphical model of the risk predictive model in (Wang et al., 2025b), where gray units denote observed
+variables with the white as unobservable ones. The solid directed lines depict the generative model, and the dashed directed lines indicate
+the recognition model and approximate inference (Kingma & Welling, 2013).
+Formulation of ELBO & Stochastic Gradient Estimates For the sake of easy and fast understanding of PDTS for the
+reviewer, we include the risk predictive model part as follows. These are modified from the MPTS team’s open-sourced
+manuscript in (Wang et al., 2025b). Here, the optimization objective of the risk predictive model is in Eq. (5) The
+risk predictive model uses a latent variable to summarize historical information and quantify uncertainty in predicting
+17
+PDTS for Adaptive Decision-Makers in Randomized Environments
+task-specific adaptation risk. The following outlines the steps for deriving the evidence lower bound in optimization.
+LML(ψ) := ln pψ(Ht|H1:t−1) = ln h Z
+pψ(Ht|zt)p(zt|H1:t−1)dz
+i
+(19a)
+= ln h Z
+qϕ(zt|Ht)
+p(zt|H1:t−1)
+qϕ(zt|Ht)
+pψ(Ht|zt)dzt
+i
+(19b)
+≥ Eqϕ(zt|Ht)
+h
+ln pψ(Ht|zt)
+i
+− DKLh
+qϕ(zt|Ht) ∥ p(zt|H1:t−1)
+i
+:= GELBO(ψ, ϕ) (19c)
+Then, the ELBO is derived with the help of the reparameterization trick (Kingma & Welling, 2013). And Wang et al. (2025b)
+further relax the ELBO to derive the β-VAE version, which corresponds to Eq. (5) in this work.
+Neural Architecture of the Risk Predictive Model. For practicality, stability and fair comparison, we adopt the same
+risk predictive model design proposed in MPTS (Wang et al., 2025b). As shown in Fig. 8, the risk learner follows an
+encoder-decoder structure. For consistency across benchmarks, we employ the same neural architecture similar with that
+of neural processes (Garnelo et al., 2018; Wang et al., 2023a) for all experiments. The encoder consists of an embedding
+network with four hidden layers, each containing 10 units and using Rectified Linear Unit (ReLU) activations. It encodes the
+batch {[τt,i, ℓt,i]}
+B
+i=1 into r through mean pooling, subsequently mapping it to [µ,σ]. The latent variable z is sampled from
+a normal distribution defined by [µ,σ]. The decoder is a three-layer neural network with nonlinear activation functions,
+mapping {[τt,i, z]}
+B
+i=1 to the predicted risk {
+ˆℓt,i}
+B
+i=1. The optimization objective is given in Eq. (5). For further details on
+the implementation, please refer to our code repository.
+Dense(10) ...
+Dense(10) ...
+Dense(10) ...
+Dense(10) ...
+Dense(10) ...
+Dense(10) ...
+Dense(10) ...
+Encoder Decoder
+KL MSE
+Mean
+Pooling
+Input
+Approximate
+posterior
+Conditional prior
+Figure 8. Illustration of the neural architecture of the risk predictive model in (Wang et al., 2025b). The risk predictive model follows an
+encoder-decoder structure which encodes the batch [τt,i, ℓt,i] into a latent variable z and then decodes it into predicted adaptation risks
+ˆℓt,i. We reuse it in PDTS as a standard risk predictive model backbone.
+B. Theoretical Analysis and Proofs
+B.1. Preliminaries of MPTS
+In MPTS (Wang et al., 2025b), the streaming adaptation outcome in task episodic learning is characterized as:
+θ0
+eval
+−−→ · · ·
+eval −−→ {(τt−1,i, ℓt−1,i)}
+B
+i=1
+opt
+−→ θt
+eval −−→ {(τt,i, ℓt,i)}
+B
+i=1
+opt
+−→ · · ·
+opt
+−→ θT . (20)
+The most encouraging finding is that these cumulated task identifiers and adaptation risk values can be coupled to learn
+helpful adaptation prior and serve the evaluation of the task difficulty in a rough granularity. The resulting dataset is used to
+train the risk predictive model associated with the modified optimization objective as Eq. (5).
+B.2. One Secret MDP Steers Adaptation to Many MDPs
+The Operator for the State Transition in the Secret MDP. Here, given a smooth and fixed machine learning optimizer, we
+can define the operator in zero-shot or few-shot adaptation optimization as:
+State Transition Operation after Adaptation F : θ × T
+B 7→ θ
+′
+, (21)
+18
+PDTS for Adaptive Decision-Makers in Randomized Environments
+which corresponds to the deterministic transition function in the secret MDP M. Here, take the DR case as an example, the
+above operator F results in the following probablly transited states:
+θ
+∗
+t+1 = arg min
+θ∈Θt+1
+Epα(τ;θ)
+h
+ℓ(DQ
+τ
+, DS
+τ
+; θ)
+i
+,
+Θt+1 =
+n
+θt − η
+1
+B
+∇θ
+X
+B
+b=1
+ℓ(DQ
+τb
+, DS
+τb
+; θ)|τb ∈ T
+B
+t+1, |T
+B
+t+1| = B, T
+B
+t+1 ⊆ T
+Bˆ
+t+1o
+,
+(22)
+where pα(τ ; θ) corresponds to the probability density function of the (1 − α)-tailed tasks.
+Probabilistic Graphical Model of the Secret MDP. Here, we can write the probabilistic form of the constructed MDP
+as:
+p(T
+B
+1:T
+, R1:T , θ0:T |Π1:T , H0:T −1) = p(θ0)
+| {z }
+Initial State
+Y
+T
+t=1
+p(Rt|θt−1, T
+B
+t
+)
+| {z }
+Step-Wise Reward
+T
+Y−1
+t=0
+πt(T
+B
+t+1|H0:t)
+| {z }
+Task Sampler
+T
+Y−1
+t=0
+p(θt+1|θt, T
+B
+t+1)
+| {z }
+State Transition
+.
+(23)
+where {T
+B
+0:T
+, r0:T , θ0:T } records the trajectory information during policy search. The corresponding probabilistic graphical
+model is in Fig. 2.
+B.3. Proof of Proposition 3.2
+Proposition 3.2 (MPTS as a UCB-guided Solution to i-MABs) Executing MPTS pipeline in Eq. (6) is equivalent to
+approximately solving M with the i-MAB under the UCB principle.
+To demonstrate the claim in Proposition 3.2, we revisit fundamental concepts in CVaRα optimization and break the problem
+into several steps. These include # Step1 the dual form of CVaRα with its Monte Carlo estimates, Lemma B.1 to determine
+the optimal step-wise action, and # Step2 nearly CVaRα approximation/UCB-Guided Solution to i-MABs in MPTS.
+# Step1. The Greedy Action as the Subset with Top-B Adaptation Risk Values.
+Unbiased Monte Carlo Estimate of CVaRα. Here, we can rewrite the optimization objective of CVaRα in the dual form:
+min
+θ∈Θ,ζ∈R
+CVaRα(θ) := ζ +
+1
+1 − α
+Ep(τ)
+h
+[ℓ(DQ
+τ
+, DS
+τ
+; θ) − ζ]
++
+i
+, (24)
+where the conditional function means [ℓ(DQ
+τ
+, DS
+τ
+; θ) − ζ]
++ = max{ℓ(DQ
+τ
+, DS
+τ
+; θ) − ζ]
++, 0}. And its Monte Carlo sample
+average approximation corresponds to
+min
+θ∈Θ,ζ∈R
+CVaRα(θ) := ζ +
+1
+(1 − α)B
+X
+B
+i=1
+[ℓ(DQ
+τ
+, DS
+τ
+; θ) − ζ]
++. (25)
+As the optimal auxiliary variable satisfies ζ = VaRα(θ), the Top-B element in the set {ℓi
+|ℓi = ℓ(D
+Q
+τˆi
+, DS
+τˆi
+; θ)}
+Bˆ
+i=1 can be
+viewed as the unbiased Monte Carlo estimate w.r.t. Eq. (24) and the equivalent form of Eq. (25). In implementation, (Wang
+et al., 2024c; Lv et al., 2024) typically evaluate the machine learner’s adaptation performance on candidate tasks, rank their
+values, and filter out (1 − α)Bˆ to optimize.
+Lemma B.1 (Subset with Top-B Risk Values as the Optimal Arm). Given the secret MDP M in Section 3.1 and its stepwsie reward R(θt, T
+B
+t+1) := CVaRα(θt) − CVaRα(θt+1), selecting the subset with average Top-B risk values inherently
+maximizes R(θt, T
+B
+t+1).
+Proof. Given the state θt and the available action set At in M, we need to show that selecting the T
+B∗
+t+1 ∈ At brings largest
+CVaR decrease as CVaRα(θt) − CVaRα(θ
+∗
+t+1).
+Let T
+B∗
+t+1 denote the subset with highest average Top-B risk values in the set {ℓi
+|ℓi = ℓ(D
+Q
+τˆi
+, DS
+τˆi
+; θ)}
+Bˆ
+i=1, which can be
+viewed as the Monte Carlo sample, i.e., unbiased estimate of pα(τ ; θt). This is also in accordance with the dual form of
+19
+PDTS for Adaptive Decision-Makers in Randomized Environments
+CVaRα in Eq. (25). Meanwhile, we can define its transited state as θ
+∗
+t+1. In a similar way, let some arbitrary feasible action,
+i.e., the subset be T
+B′
+t+1. we can define the corresponding transited state as θ
+∗
+t+1. Inspired by the notation in Eq. (A.2), we
+can re-express the subset T
+B′
+t+1 as the Monte Carlo sample from another task distribution q(τ ), which differs from pα(τ ; θt).
+Next, we can estimate the robustness improvement under different actions from the one-step Taylor expansion trick.
+Unbiased Objective L(θ) := Epα(τ;θt)
+
+ℓ(DQ
+τ
+, DS
+τ
+; θ)
+
+Biased Objective Lˆ(θ) := Eq(τ)
+
+ℓ(DQ
+τ
+, DS
+τ
+; θ)
+
+(26a)
+θ
+′
+t+1 = θt − η∇θL(θ) θˆ′
+t+1 = θt − η∇θLˆ(θ) (26b)
+L(θ
+′
+t+1) = L(θt) − η∇θL(θ)
+T ∇θL(θ) + O(||θ
+′
+t+1 − θt||2
+2
+) ⇒ L(θt) − L(θ
+′
+t+1) ≈ η||∇θL(θ)||2
+2
+(26c)
+L(θt) − L(θˆ′
+t+1) ≈ η∇θL(θ)
+T ∇θLˆ(θ) = η||∇θL(θ)||2
+2
+cos αq ≤ η||∇θL(θ)||2
+2 = L(θt) − L(θ
+′
+t+1), (26d)
+where we typically assume the norms of stochastic gradients for ∇θL(θ)
+T
+and ∇θLˆ(θ) are the same and their angle is αq.
+As a result, we can see the optimal stochastic gradient should be the unbiased estimate of the Eq. (24), which corresponds to
+the Top-B tasks in the pseudo batch T
+Bˆ
+t+1 with B
+Bˆ = 1 − α. This completes the proof of Lemma B.1.
+Meanwhile, remember that in the task-selection MDP M, the agent will never revisit the previous state θt due to the
+nature of the stochastic gradient descent in the operator F in Eq. (21). Finally, we can claim that maximizing the state
+action value Q(θt, T
+B
+t+1) in the i-MAB actually corresponds to maximizing the step-wise reward due to the Bellman
+optimality in the main paper, and picking up the worst subset secretly maximizes R(θt, T
+B
+t+1) in a greedy way. This implies
+that π
+∗
+t = arg maxTB
+t+1⊆TBˆ
+t+1
+Q(θt, T
+B
+t+1) and Q(θt, T
+B
+t+1) ∝
+1
+B
+PB
+i=1 ℓt+1,i, where {ℓt+1,i}
+B
+i=1 denotes the evaluated
+adaptation performance of a feasible subset T
+B
+t+1 conditioned on θt. In the presence of RATS, the adaptation performance is
+evaluated by the risk predictive model p(ℓ|τ , H1:t; θt) in an amortized way, which suggests Q(θt, T
+B
+t+1) ∝
+1
+B
+PB
+i=1
+ˆℓt+1,i
+with ˆℓ the predicted value.
+# Step2. UCB-Guided Solution to i-MABs in MPTS.
+Assumption 3 (Randomized Adaptation Risk Value Function). Given the secret MDP M in Section 3, we assume the distribution of the adaptation risk value follows an implicit Gaussian distribution, i.e., p(ℓt+1,i|τi
+, H1:t; θt) = N(µt+1,i, σ2
+t+1).
+Note that tasks with their identifiers are sampled in an i.i.d. way; this induces the conditional independence and the
+distribution of their summation as Eq. (27) with the help of Assumption 3.
+p(L
+B
+t+1|T
+B
+t+1, H1:t; θt) = Y
+B
+i=1
+p(ℓt+1,i|τi
+, H1:t; θt) = Y
+B
+i=1
+N(µt+1,i, σ2
+t+1,i)
+=⇒ p(
+X
+B
+i=1
+ℓt+1,i|T
+B
+t+1; θt) = N(
+X
+B
+i=1
+µt+1,i,
+X
+B
+i=1
+σ
+2
+t+1,i) := N(µ
+B
+t+1, σB2
+t+1)
+(27)
+At the same time, we find in MPTS, the multiple stochastic forward passes in Eq. (7) are performed to obtain the MC
+estimated distribution parameters {m(ℓi) := ˆµt+1,i, σi(ℓi) := ˆσt+1,i} for each task identifier τi
+in the batch T
+B
+t+1. This can
+be further associated with the factorization in the risk predictive model as Eq. (28):
+p(L
+B
+t+1|T
+B
+t+1, H1:t; θt) ≈
+Z
+pψ(L
+B
+t+1|T
+B
+t+1, zt)qϕ(zt|H1:t)dzt (28a)
+=
+Z Y
+B
+i=1
+p(ℓt+1,i|τt+1,i, zt)q(zt|H1:t)dzt. (28b)
+The last step shows that the worst subset corresponds to the unbiased Monte Carlo estimate of CVaRα, and its sample
+average adaptation risk value can be treated as the proxy of the reward. Hence, picking up the subset with each element in
+the Top-B risk values is doing exploitation in robust fast adaptation. Rethinking MPTS’s acquisition function in Eq. (7), we
+20
+PDTS for Adaptive Decision-Makers in Randomized Environments
+can find the following inequality:
+vuutX
+B
+i=1
+σ
+2
+t+1,i ≤
+X
+B
+i=1
+σt+1,i with ∀σt+1,i ∈ R
++ (29a)
+=⇒ γ1
+vuutX
+B
+i=1
+σ
+2
+t+1,i +
+X
+B
+i=1
+γ0µt+1,i ≤
+X
+B
+i=1
+γ1σt+1,i + γ0µt+1,i (29b)
+=⇒ γ1
+vuutX
+B
+i=1
+σ(ℓi)
+2 + γ0
+X
+B
+i=1
+m(ℓi)
+| {z }
+UCB
+≤
+X
+B
+i=1
+γ1σ(ℓi) + γ0m(ℓi)
+| {z }
+Approximate UCB
+:= AU(T
+B), (29c)
+which means MPTS actually executes the approximate UCB to balance the exploitation (picking up the subset with the
+estimated worst performance) and the exploration of the task space (picking up the arm with the nearly highest epistemic
+uncertainty (Wang & Van Hoof, 2020) captured by the risk predictive model).
+The above two steps complete the proof of Proposition 3.2.
+B.4. Proof of Proposition 3.3
+Proposition 3.3 (Concentration Issue in Average Top-B Selection) Let f(τ ) : R
+d → R be a unimodal and continuous
+function, where d ∈ N
++ and τ ∈ R
+d
+, with a maximum value f(τ
+∗
+) at τ
+∗
+. We uniformly sample a set of points T
+Bˆ = {τi}
+Bˆ
+i=1,
+where τi are i.i.d. with a probability pϵ of falling within a ϵ-neighborhood of τ
+∗ as |f(τ ) − f(τ
+∗
+)| ≤ ϵ. Following MPTS,
+we select the Top-B samples with the largest function values, i.e.,
+T
+B = Top-B(T
+Bˆ
+, f), Bˆ , B ∈ N
++, B ≤ Bˆ ,
+For any ϵ > 0 such that pϵ <
+Bˆ −B+2
+Bˆ +1
+, the concentration probability
+P
+
+|f(τ ) − f(τ
+∗
+)| ≤ ϵ | ∀τ ∈ T
+B
+
+increases with Bˆ and converges to 1 with Bˆ → ∞.
+Proof. We define pϵ as the probability that a random variable τ uniformly sampled from the domain of definition falls
+within the neighborhood of the maximum value τ
+∗
+, i.e.,
+pϵ = P (|f(τ ) − f(τ
+∗
+)| ≤ ϵ | τ ∼ Unif(·)).
+Next, consider the probability that at least B random variables from the set T
+Bˆ = {τi}
+Bˆ
+i=1, where Bˆ , B ∈ N
++ and B ≤ Bˆ ,
+are within the neighborhood of τ
+∗
+. Since the τi’s are i.i.d. and τi ∼ Unif(·), the probability is given by
+P
+Bˆ ,B = 1 −
+"X
+B
+i=1
+p
+Bˆ −i+1
+ϵ
+(1 − pϵ)
+i−1
+
+Bˆ
+i − 1
+#
+.
+Since f is a unimodal and continuous function, we can directly relate the concentration probability as
+P
+
+|f(τ ) − f(τ
+∗
+)| ≤ ϵ
+
+ ∀τ ∈ T
+B
+
+= P
+Bˆ ,B.
+To establish the monotonicity of P
+Bˆ ,B with respect to Bˆ , observe that the term p
+Bˆ −i+1
+ϵ
+(1 − pϵ)
+i−1
+ Bˆ
+i−1
+
+is monotonically
+decreasing in Bˆ for fixed i, given that pϵ <
+Bˆ −i+2
+Bˆ +1
+. To see this, we compute the ratio of consecutive terms:
+p
+Bˆ −i+1
+ϵ
+(1 − pϵ)
+i−1
+ Bˆ
+i−1
+
+p
+Bˆ −i+2
+ϵ (1 − pϵ)
+i−1
+Bˆ +1
+i−1
+ =
+Bˆ − i + 2
+pϵ(Bˆ + 1)
+> 1
+PDTS for Adaptive Decision-Makers in Randomized Environments
+Thus, the sequence p
+Bˆ −i+1
+ϵ
+(1 − pϵ)
+i−1
+ Bˆ
+i−1
+
+decreases with Bˆ , and consequently, P
+Bˆ ,B increases monotonically in Bˆ when
+B is fixed, provided that pϵ <
+Bˆ −B+2
+n+1 .
+Therefore, we conclude that for any ϵ > 0 such that pϵ <
+Bˆ −B+2
+Bˆ +1
+, the probability P
+
+|f(τ ) − f(τ
+∗
+)| ≤ ϵ
+
+ ∀τ ∈ T
+B
+
+increases monotonically with Bˆ for fixed B.
+B.5. Proof of Proposition 3.4
+Proposition 3.4 (Nearly Worst-Case Optimization with PDTS) When Bˆ grows large enough, optimizing the subset from Eq.
+(11) achieves nearly worst-case optimization.
+Proof. As the exact size of the subset B is fixed in the optimization, the ratio B
+Bˆ
+goes to nearly 0 with the increase of Bˆ to a
+certain scale. As the consequence, the number of arms grows to C
+B
+Bˆ
+and the robustness concept is CVaR1− B
+Bˆ
+. Since the
+involvement of the diversity regularization perturbs the worst arm selection, this induces the nearly worst-case optimization
+in PDTS.
+C. Experimental Setups & Implementation Details
+C.1. Risk-Averse Baseline Details
+These baselines are SOTA methods published in NeurIPS/ICLR conferences and the latest open-sourced version (Wang
+et al., 2024c; Lv et al., 2024; Sagawa et al., 2019; Wang et al., 2025b; Greenberg et al., 2024).
+GDRM (Sagawa et al., 2019; Setlur et al., 2024). As briefly introduced in the main paper, GDRM can be viewed as a
+min-max optimization problem. The core concept of enhancing the machine learner’s robustness involves reallocating more
+probability mass to the worst-case scenarios in a weighted manner. In each iteration with the optimal pgˆ(τ ), the optimization
+problem simplifies to:
+min
+θ∈Θ
+Epgˆ(τ)
+h
+ℓ(DQ
+τ
+, DS
+τ
+; θ)
+i
+= Ep(τ)
+
+pgˆ(τ )
+p(τ )
+ℓ(DQ
+τ
+, DS
+τ
+; θ)
+
+, (30)
+where we use ω(τ ) = pgˆ(τ)
+p(τ)
+to denote the weight.
+In general, for a fixed number of tasks, GDRM organizes tasks heuristically or dynamically into clusters, followed by a
+reweighting mechanism based on assessed risks. However, in task-episodic learning, no task grouping is performed because
+the task batch is reset after each iteration (Wang et al., 2024c; Lv et al., 2024). Task-specific weights are calculated as
+ω(τi) = exp(ηℓ(DQ
+τi
+,DS
+τi
+;θ))
+PB
+b=1 exp(ηℓ(DQ
+τb
+,DS
+τb
+;θ)) , where η denotes the temperature parameter, and {τb}
+B
+b=1 represents the identifiers of the
+task batch. Additional implementation details are available at https://github.com/kohpangwei/group_DRO.
+DRM (Wang et al., 2024c; Lv et al., 2024). As outlined in the main paper, we adopt the standard approach in DRM, where
+the optimization objective is expressed as Epα(τ;θ)
+h
+ℓ(DQ
+τ
+, DS
+τ
+; θ)
+i
+. A widely used practical strategy involves evaluating the
+performance of the machine learner, ranking task-specific adaptation risks, and optimizing over the worst (1 − α) proportion
+of tasks.
+Following the setup in Wang et al. (2024c), we select the Top-B tasks during optimization, which corresponds to evaluating
+a task batch of size B
+1−α
+. To ensure a fair comparison with PDTS while preserving computational efficiency, we employ the
+same Monte Carlo estimator for the risk quantile as in Wang et al. (2024c). For all benchmarks, we set the actual task batch
+size to Bˆ = 2B, discarding the easiest half before optimizing the machine learner.
+MPTS (Wang et al., 2025b). We have thoroughly introduced the MPTS pipeline in Section 2.2 and provided details
+of the risk learner in Section A.5. For additional configurations, we adopt those from the official repository at https:
+//github.com/thu-rllab/MPTS, including the heuristic random mixture strategy and the specific values of Bˆ .
+
+PDTS for Adaptive Decision-Makers in Randomized Environments
+Table 3. Details of Task Identifiers and Algorithm Backbones Across Benchmarks. Here, we provide detailed information about the
+task identifiers used to induce task distributions and the algorithm backbones, including MAML (Finn et al., 2017), TD3 (Fujimoto et al.,
+2018), and PPO (Schulman et al., 2017), employed in various benchmarks.
+Benchmarks Identifier Meaning Identifier Range Backbone
+K-shot sinusoid regression amplitude and phase (a, b) [0.1, 5.0] × [0, π] MAML
+Meta-RL: ReacherPos goal location (x1, x2) [−0.2, 0.2] × [−0.2, 0.2]
+MAML Meta-RL: Walker2dVel velocity v [0, 2.0]
+Meta-RL: Walker2dMassVel mass and velocity (m, v) [0.75, 1.25] × [0, 2.0]
+Meta-RL: HalfCheetahMassVel mass and velocity (m, v) [0.75, 1.25] × [0, 2.0]
+DR: Pusher puck friction loss f and puck joint damping d [0.004, 0.01] × [0.01, 0.025]
+DR: LunarLander main engine strength s [4, 20] TD3
+DR: ErgoReacher joint damping d and max torque t (×4 joints) [0.1, 2.0] × [2, 20]
+VisualDR: LiftPegUpright Light ambient light l (x3 dimensions) [−1.0, 2.0] PPO VisualDR: AnymalCReach Goal goal location (x1, x2) [0.0, 1.0] × [0.0, 1.0]
+C.2. Sinusoid Regression
+Following standard setups in prior works (Finn et al., 2017; Wang et al., 2025b), we define the sinusoid regression problem
+as a toy example of supervised meta-learning. The goal of this problem is to predict the wave function y = a sin(x − b),
+where the amplitude a and phase b are sampled as task-specific parameters, i.e., task identifier τ = (a, b), using a few-shot
+support dataset. We adopt the 10-shot sinusoid regression setting, where 10 data points are uniformly sampled from the
+interval [−5.0, 5.0] to form the support dataset for each task.
+Implementation Details. The machine learner is a neural network with 2 hidden layers, each of size 40, using the Rectified
+Linear Unit (ReLU) as the nonlinear activation function. The task batch size is set to 16 for ERM and GDRM, while a
+batch size of 32 is used as the default for DRM. The temperature parameter in GDRM is η = 0.001, and the learning rates
+for both the inner and outer loops are fixed at 0.001. The task identifier has a dimensionality of 2. For MPTS and PDTS,
+the identifier batch size during training is set to 32 (2×) and 512 (32×), respectively. We use the Adam optimizer with a
+learning rate of 5 × 10−4
+to update the risk learner over 15,000 steps. The label for the risk learner is the average MSE
+loss value for each task. For sinusoid regression and meta-reinforcement learning, we use the standard repository provided
+by MAML (Finn et al., 2017). Regarding validation during training, we use a separate uniform task sampler with a fixed
+random seed to select 1,000 tasks for validating the training checkpoints of various methods.
+C.3. Meta Reinforcement Learning
+We adopt four Meta-RL scenarios—ReacherPos, Walker2dVel, Walker2dMassVel, and HalfCheetahMassVel—from
+MPTS (Wang et al., 2025b), which represent distinct MDP distributions based on the Mujoco physics engine (Todorov
+et al., 2012). These scenarios involve three types of robots (HalfCheetah, Walker2d, and Reacher) and three randomized
+meta-learning objectives: velocity, goal location, and body mass.
+• The objective in velocity-based scenarios, e.g., Walker2dVel, is to train the robot to achieve a target velocity, with the
+reward function defined as the negative absolute difference between the robot’s current velocity and the target velocity.
+This reward is augmented by a control penalty and an alive bonus to facilitate learning. As the task distribution is
+specified by a uniform distribution over the target velocity, τ = v can be viewed as the task identifier.
+• The body mass and velocity scenarios, e.g., Walker2dMassVel and HalfCheetahMassVel, share the same objective as
+the velocity scenarios but additionally feature varying robot masses. As the task distribution is specified by a uniform
+distribution over the body mass and target velocity, τ = (m, v) can be viewed as the task identifier.
+• The goal location scenario, e.g., ReacherPos, requires moving a two-jointed robot arm’s end effector close to a target
+position. Its reward function is defined as the negative L1 distance between the end effector’s position and the target,
+23
+PDTS for Adaptive Decision-Makers in Randomized Environments
+Figure 9. Illustrations of three types of robots in Meta-RL based on the Mujoco. (a) Reacher, (b) HalfCheetah, and (c) Walker2d.
+Figure 10. Illustrations of three physical robotics domain randomization scenarios: (a) LunarLander, (b) Pusher, and (c) ErgoReacher. The
+illustration of ErgoReacher is adapted from (Mehta et al., 2020).
+supplemented by a control cost to encourage robustness. As the task distribution is specified by a uniform distribution
+over the goal location, τ = (x1, x2) can be viewed as the task identifier.
+Implementation Details. The machine learner is implemented as a neural network with 2 hidden layers, each consisting of
+64 units, and utilizes ReLU activations for nonlinearity. For ERM and GDRM, the default task batch size is set to 20, while
+DRM uses a batch size of 40. The temperature parameter for GDRM is configured as 0.001. Both the inner and outer loop
+learning rates are fixed at 0.1. Besides, the identifier batch size during training is 30 (1.5×) for MPTS and 1280 (64×) for
+PDTS. The risk learner is updated using the Adam optimizer with a learning rate of 5 × 10−3
+. The label for the risk learner
+is the negative average reward value at the final step for each task. For validation during training, we uniformly sample 40
+tasks from the task space at fixed intervals to validate the training checkpoints of different methods. For meta-testing after
+training, we uniformly sample 100 tasks from the task space to test the trained models of different methods.
+C.4. Physical Robotics Domain Randomization
+As shown in Fig. 10, we adopt three scenarios for robotics domain randomization from Mehta et al. (2020): Pusher,
+LunarLander, and ErgoReacher. The task distribution is defined as in (Wang et al., 2025b). Specifically:
+• LunarLander is a 2-degree-of-freedom (DoF) environment where the agent must softly land a spacecraft, implemented
+in Box2D (Catto, 2007). Its reward function provides positive rewards for successful landings, negative rewards for
+crashes, and penalties for fuel consumption and deviations from the landing pad, thereby promoting efficient and
+controlled landings. The task distribution is specified by a uniform distribution over the main engine strength s, which
+can be viewed as the task identifier τ = s.
+• Pusher is a 3-DoF robotic arm control environment based on MuJoCo (Todorov et al., 2012), where the agent pushes
+a puck to a target. The reward function penalizes the L2 distance between the puck and the target, augmented by a
+control penalty. The task distribution is specified by a uniform distribution over the puck friction loss f and puck joint
+damping d, which can be viewed as the task identifier τ = (f, d).
+24
+PDTS for Adaptive Decision-Makers in Randomized Environments
+Figure 11. Illustrations of two visual robotics domain randomization scenarios: controlling (a) a table-top robotic arm and (b) a quadruped
+robot, operating under randomized lighting conditions and varying goal locations, respectively.
+• ErgoReacher involves a 4-DoF robotic arm implemented in the Bullet Physics Engine (Coumans, 2015), tasked with
+reaching a goal using its end effector. Its reward function penalizes the distance between the end effector and the target,
+combined with control penalties. The task distribution is specified by a uniform distribution over the joint damping d
+and max torque t across 4 joints, which can be viewed as the task identifier τ = (d1, d2, d3, d4, t1, t2, t3, t4).
+Details of the randomized task identifier range are presented in Table 3.
+Implementation Details. The machine learner is a neural network with two hidden layers, each consisting of 10 units,
+and uses ReLU activation functions. For ERM and GDRM, the task batch size is set to 10, while DRM uses a batch size of
+20. GDRM employs a temperature parameter of 0.01. We adopt TD3 algorithm (Fujimoto et al., 2018) as the algorithm
+backbone. The actor and critic learning rates are both set to 3 × 10−4
+. For MPTS, the identifier batch size during training is
+25 (2.5×) for LunarLander, 50 (5×), and 250 (25×) for ErgoReacher. In contrast, for PDTS, the identifier batch size during
+training is 640 (64×) for all environments, with no additional requirements for fine-tuning. The risk learner is updated using
+the Adam optimizer with a learning rate of 0.005. The label for the risk learner is the negative average return for each task.
+For validation during training, we uniformly sample 100 tasks from the task space to validate the training checkpoints of
+different methods.
+C.5. Visual Robotics Domain Randomization
+Visual-based robotics control is common and crucial in real-world scenarios. As illustrated in Fig. 11, based on the latest
+robotics simulator, ManiSkill3 (Tao et al., 2024), we design two scenarios for visual robotics domain randomization:
+LiftPegUpright Light and AnymalCReach Goal. These scenarios involve controlling a tabletop two-finger gripper arm robot
+and a quadruped robot, respectively, under randomized lighting conditions and goal locations.
+Specifically:
+• LiftPegUpright Light is derived from the LiftPegUpright-v1 scenario in ManiSkill3, where the objective is to move
+a peg lying on the table to an upright position. To emulate the complex lighting conditions found in real-world
+environments, we modify this scenario to make the ambient lighting controllable. An illustration of this setup is shown
+in Fig. 6. The task distribution is specified by a uniform distribution over the configurations of ambient light, which can
+be viewed as the task identifier τ = (l1, l2, l3).
+• AnymalCReach Goal is adapted from the AnymalC-Reach-v1 scenario in ManiSkill3. The task is to control the
+AnymalC robot to reach a target location in front of it. Inspired by point-robot navigation scenarios in prior works(Finn
+et al., 2017), we randomize the goal location, which remains visible to the robot. The task distribution is specified by a
+uniform distribution over the goal location, which can be viewed as the task identifier τ = (x1, x2).
+The detailed randomization configurations are provided in Table 3.
+Implementation Details. We use the PPO algorithm (Schulman et al., 2017), along with its hyperparameters and network
+architecture, as provided in the official ManiSkill3 codebase. To accommodate GPU memory limitations, we set the
+25
+PDTS for Adaptive Decision-Makers in Randomized Environments
+task batch size to 16 for ERM and GDRM and 32 for DRM, with 500 steps per iteration on LiftPegUpright Light. For
+AnymalCReach Goal, the task batch size is 128 for ERM and GDRM and 256 for DRM, with 200 steps per iteration. For
+MPTS, the identifier batch size during training is 32 for LiftPegUpright Light and 256 for AnymalCReach Goal (2.5×). For
+PDTS, the identifier batch size during training is 64× the default for all environments. The risk learner is updated using the
+Adam optimizer with a learning rate of 0.005. The label for the risk learner is the negative average reward for each task. For
+validation during training, we uniformly sample 64 tasks from the task space to validate the training checkpoints of different
+methods.
+D. Additional Experiment Results
+/2 0 /2
+-a
+a
+= [a, b]
+(a)
+Sinusoid Regression
+f(x) = asin(x b)
+0 5 10 15
+Iteration (x10
+3
+)
+0.5
+1.0
+1.5
+2.0
+2.5
+MSE
+(b)
+Validation Curves
+Average CVaR0.5 CVaR0.7 CVaR0.9
+0.2
+0.6
+1.0
+1.4
+MSE
+(c)
+Meta-Testing Performance
+PDTS (Ours) MPTS ERM GDRM DRM
+Figure 12. Few-Shot Sinusoid Regression Results. (a) Illustration of the sinusoid regression problem, where the task identifier τ
+consists of the amplitude and phase [a, b]. (b) Curves of averaged MSEs on the validation task set for all methods during meta-training.
+(c) MSE values for all methods at various α levels of CVaRα during meta-testing.
+D.1. Beyond Decision-Making: Robust Supervised Meta-Learning
+This work primarily focuses on risk-averse sequential decision-making. However, PDTS is readily extendable to other
+risk-averse scenarios, such as supervised meta-learning. As shown in Fig. 12, we evaluate PDTS on sinusoid regression,
+a commonly-used toy example introduced in Finn et al. (2017), which involves adapting quickly to new functions using
+only 10 samples. Consistent with the results observed in decision-making, PDTS achieves superior performance compared
+to all baselines, demonstrating faster average performance and more robust adaptation. Moreover, as demonstrated in
+MPTS (Wang et al., 2025a), the RATS paradigm has broad applicability, including image classification (Gondal et al., 2024).
+It is believed to be promising in other interesting areas, such as LLM-guided decision-making (Ma et al., 2024; Wang et al.,
+2024a; Qu et al., 2024; 2025), multi-agent systems (Shao et al., 2023b;a; Qu et al., 2023), and data sampling in offline
+reinforcement learning (Levine et al., 2020; Zhang et al., 2023; Mao et al., 2023a;b; Hong et al., 2023; Mao et al., 2024a;b).
+D.2. Ablation Studies and Additional Analysis
+In this section, we perform additional experiments to carry out ablation studies on the hyperparameters and components of
+PDTS, demonstrate the presence of the concentration issue in MPTS, and validate the effectiveness of PDTS in addressing it.
+For computational efficiency, we use sinusoid regression as the testbed.
+Ablation Study on Diversity Regularization Weight γ. As shown in Fig. 13(a), we evaluate the effect of varying values
+of the diversity regularization weight γ. It is evident that diversity regularization plays a crucial role in PDTS, as its absence
+(γ = 0) leads to a dramatic performance drop. PDTS demonstrates robustness to the choice of γ within a certain range (e.g.,
+[1, 2]). However, excessively large values of γ degrade performance, emphasizing the importance of balancing diversity and
+robust optimization. In most cases, setting γ to 1 or a nearby value secures superior enough performance. For scenarios with
+an extremely low-dimensional task identifier, increasing γ appropriately may improve performance.
+Ablation Study on Key Components: Posterior Sampling and Diversity Regularization. In simple terms, PDTS can
+be viewed as the combination of MPTS and diversity regularization, with UCB replaced by posterior sampling. We conduct
+an ablation study to highlight the significance of each component. As shown in Fig. 13(b), we replace the UCB in MPTS
+with posterior sampling (MPTS+P) and incorporate diversity regularization into MPTS (MPTS+D). The results demonstrate
+that each component contributes significantly to the superiority of PDTS.
+26
+PDTS for Adaptive Decision-Makers in Randomized Environments
+0 1 2 4 8
+0
+2
+4
+6
+MSE
+(a)
+Average
+CVaR0.5
+CVaR0.7
+CVaR0.9
+MPTS MPTS+P MPTS+D PDTS
+0
+1
+2
+3
+4
+5
+6
+MSE
+(b)
+Average
+CVaR0.9
+0 1 2 3 4 5
+Amplitude
+0.0
+0.5
+1.0
+1.5
+2.0
+2.5
+3.0
+Phase
+(c)
+Candidate Tasks (32x)
+Selected Tasks
+2x 8x 32x
+0
+1
+2
+3
+4
+5
+MSE
+(d)
+MPTS_Average
+MPTS_CVaR0.9
+PDTS_Average
+PDTS_CVaR0.9
+Figure 13. (a) Meta-testing results trained with different hyperparameter, γ. (b) Ablation studies on key components, including posterior
+sampling (P) and diversity regularization (D). (c) Visualization of the distribution of candidate tasks (gray points) and selected tasks (red
+points) in MPTS, highlighting the concentration issue. (d) Comparison of the average and CVaR0.9 meta-testing performance of PDTS
+and MPTS with increasing pseudo-batch sizes.
+The Presence of the Concentration Issue in MPTS. As introduced in Sec. 3.2, we theoretically prove the presence of a
+concentration issue in MPTS. To empirically demonstrate the concentration issue and its impact, we evaluate MPTS on
+sinusoid regression. Fig. 13(c) shows that, as the candidate batch size increases, MPTS tends to select tasks concentrated
+within a small region—a phenomenon referred to as the concentration issue in the main paper. As illustrated in Fig. 13(d),
+this concentration issue leads to catastrophic performance degradation in MPTS as the candidate batch size increases.
+PDTS Addresses the Concentration Issue and Benefits from Improved Coverage. In contrast to MPTS, Fig. 13(e)
+demonstrates that by incorporating diversity regularization, our method, PDTS, avoids the concentration issue and does
+not experience performance collapse as the candidate batch size increases. More impressively, the performance of PDTS
+improves with increasing candidate batch size, demonstrating the benefits of encouraging broader coverage of the task space
+during subset selection as proposed by PDTS.
+Ablation Study on the Risk Predictive Model. We conducted an ablation study to analyze the impact of the risk
+predictive model. We designed two variants, PDTS-Deep and PDTS-Shallow, by increasing and decreasing the number
+of encoder-decoder layers, respectively. Additionally, we replaced the encoder-decoder structure with an MLP to create
+PDTS-MLP. Results on Walker2dVel are summarized in Table 4. From these results, we observe: (1) All PDTS variants
+achieve better task robust adaptation, confirming the effectiveness of PDTS and its generality across different risk predictive
+models. (2) The encoder-decoder architecture generally outperforms MLP-based models, supporting the rationale behind
+this design. (3) Deeper networks may introduce a performance-robustness trade-off in the current setting, which we plan
+to further investigate in more complex scenarios. (4) Weaker risk prediction models degrade overall performance, due to
+poorer difficult MDP identification.
+Table 4. Comparison of methods with different risk predictive models on Walker2dVel.
+Methods CVaR0.9 CVaR0.7 CVaR0.5 Average
+ERM -69.77±7.62 -31.73±7.82 -3.78±6.66 38.88±4.73
+PDTS -22.42±3.13 2.86±3.04 16.57±2.93 40.40±3.07
+PDTS-Deep -30.51±7.11 0.55±5.69 17.99±4.8 44.42±3.69
+PDTS-Shallow -41.24±4.74 -11.34±4.5 3.92±4.33 33.64±4.01
+PDTS-MLP -41.07±4.88 -12.04±5.06 3.38±4.94 32.96±4.58
+E. Other Discussions
+Relation with Traditional Active Learning. Traditional active learning (Ren et al., 2021) aims at reducing the sampling
+redundancies during optimization and exploiting historical optimization information to improve learning efficiency, such as
+annotations and computations. The active query strategies (Zhu et al., 2003; Gal et al., 2017; Kirsch et al., 2019; Wu et al.,
+2022; Mukhoti et al., 2023) also rely on some predictive models and utilize principles like uncertainty, diversity, etc. RATS,
+such as MPTS (Wang et al., 2025b) and PDTS in this work, stresses the importance of robustness during active sampling.
+Hence, the predictive model requires scoring the task difficulties without exact evaluation.
+27
+PDTS for Adaptive Decision-Makers in Randomized Environments
+When MPTS Meets Diversity Regularization. The diagnosis of the concentration issue in Sec. 3.2 identifies the diversity
+regularization as a plausible solution to encourage the exploration of the task space and bring more worst-case robust
+solutions as more arms are constructed by increasing B. Actually, we also examine this part and include the ablation studies
+on the sinusoid regression in Fig. 13(b). For other evaluations in the main paper, we assume that MPTS’s group (Wang
+et al., 2025b) adopts the optimal hyper-parameter configurations. Hence, their setup is adopted to produce MPTS results.
+Meanwhile, the posterior sampling’s advantage lies in (i) no extra hyperparameter adjustment, unlike UCB used in MPTS,
+and (ii) stochastic optimism when the uncertainty is difficult to estimate.
+PDTS is Agnostic to the Risk Predictive Model. As RATS in this work is a rarely investigated concept in the field, limited
+methods have been developed to score task difficulties, particularly MDPs’ difficulties under a policy. The risk predictive
+model in MPTS has approximately achieved the purpose. Hence, we reuse their module as the backbone. In reality, our
+theoretical analysis and PDTS will be compatible with other risk-predictive models in the future.
+F. Computational Platform & Software
+This research project conducts experiments using NVIDIA 3090 GPUs in computation, and Pytorch works as the deep
+learning toolkit in implementation. The software requirement list can be found in the open-source code from the project
+website. Please refer to technical blog from our team website at https://www.thuidm.com/.
+28

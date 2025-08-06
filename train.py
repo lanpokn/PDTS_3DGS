@@ -8,6 +8,9 @@
 #
 # For inquiries contact  george.drettakis@inria.fr
 #
+import random
+
+
 
 import os
 import torch
@@ -22,6 +25,7 @@ from tqdm import tqdm
 from utils.image_utils import psnr
 from argparse import ArgumentParser, Namespace
 from arguments import ModelParams, PipelineParams, OptimizationParams
+import time
 try:
     from torch.utils.tensorboard import SummaryWriter
     TENSORBOARD_FOUND = True
@@ -40,7 +44,7 @@ try:
 except:
     SPARSE_ADAM_AVAILABLE = False
 
-def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint, debug_from):
+def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint, debug_from, loss_judge=False, num_selected_views=16, pdts=False):
 
     if not SPARSE_ADAM_AVAILABLE and opt.optimizer_type == "sparse_adam":
         sys.exit(f"Trying to use sparse adam but it is not installed, please install the correct rasterizer using pip install [3dgs_accel].")
@@ -67,6 +71,24 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
     viewpoint_indices = list(range(len(viewpoint_stack)))
     ema_loss_for_log = 0.0
     ema_Ll1depth_for_log = 0.0
+    
+    # Loss-based view selection variables
+    selected_views = []
+    current_selection_round = 0
+    next_selection_iteration = 1  # First selection at iteration 1
+    selection_interval = num_selected_views  # Always equal to num_selected_views
+    
+    # PDTS initialization
+    pdts_selector = None
+    if pdts:
+        from pdts_integration import PDTSViewSelector
+        pdts_selector = PDTSViewSelector(
+            device="cuda", 
+            x_dim=13,  # <--- 在这里明确指定新的输入维度
+            bootstrap_iterations=200, 
+            lambda_diversity=0.5
+        )
+        # Quiet initialization
 
     progress_bar = tqdm(range(first_iter, opt.iterations), desc="Training progress")
     first_iter += 1
@@ -94,13 +116,83 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         if iteration % 1000 == 0:
             gaussians.oneupSHdegree()
 
-        # Pick a random Camera
-        if not viewpoint_stack:
-            viewpoint_stack = scene.getTrainCameras().copy()
-            viewpoint_indices = list(range(len(viewpoint_stack)))
-        rand_idx = randint(0, len(viewpoint_indices) - 1)
-        viewpoint_cam = viewpoint_stack.pop(rand_idx)
-        vind = viewpoint_indices.pop(rand_idx)
+        # View selection logic
+        if pdts:
+            # PDTS-based view selection
+            if iteration >= next_selection_iteration or len(selected_views) == 0:
+                viewpoint_pool = scene.getTrainCameras()
+                selected_views, selection_mode = pdts_selector.select_views(
+                    viewpoint_pool, num_selected=num_selected_views, num_candidates=32
+                )
+                current_selection_round += 1
+                next_selection_iteration = iteration + selection_interval
+            
+            # Use one of the selected views for training
+            view_idx = (iteration - 1) % len(selected_views)
+            viewpoint_cam = selected_views[view_idx]
+            
+        elif loss_judge:
+            # Legacy loss-based view selection
+            if iteration >= next_selection_iteration or len(selected_views) == 0:
+                selection_start = time.time()
+                
+                viewpoint_pool = scene.getTrainCameras()
+                num_cams = len(viewpoint_pool)
+                
+                # Randomly select candidates (32 or all views if fewer than 32)
+                num_candidates = min(32, num_cams)
+                candidate_indices = random.sample(range(num_cams), k=num_candidates)
+                
+                # Evaluate candidate views and get their losses
+                view_losses = []
+                for idx in candidate_indices:
+                    cam = viewpoint_pool[idx]
+                    bg = torch.rand((3), device="cuda") if opt.random_background else background
+                    
+                    with torch.no_grad():
+                        render_pkg = render(
+                            cam, gaussians, pipe, bg,
+                            use_trained_exp=dataset.train_test_exp,
+                            separate_sh=SPARSE_ADAM_AVAILABLE
+                        )
+                        image = render_pkg["render"]
+                        if cam.alpha_mask is not None:
+                            alpha_mask = cam.alpha_mask.cuda()
+                            image *= alpha_mask
+                        gt_image = cam.original_image.cuda()
+                        Ll1 = l1_loss(image, gt_image)
+                        ssim_value = (
+                            fused_ssim(image.unsqueeze(0), gt_image.unsqueeze(0))
+                            if FUSED_SSIM_AVAILABLE else ssim(image, gt_image)
+                        )
+                        combined_loss = (1.0 - opt.lambda_dssim) * Ll1 + opt.lambda_dssim * (1.0 - ssim_value)
+                    
+                    view_losses.append((idx, combined_loss.item()))
+                
+                # Sort by loss (descending) and select top num_selected_views
+                view_losses.sort(key=lambda x: x[1], reverse=True)
+                selected_indices = [x[0] for x in view_losses[:num_selected_views]]
+                selected_views = [viewpoint_pool[idx] for idx in selected_indices]
+                
+                current_selection_round += 1
+                next_selection_iteration = iteration + selection_interval
+            
+            # Use one of the selected views for training
+            view_idx = (iteration - 1) % len(selected_views)
+            viewpoint_cam = selected_views[view_idx]
+        else:
+            # Original random selection logic
+            if not viewpoint_stack:
+                viewpoint_stack = scene.getTrainCameras().copy()
+            rand_idx = randint(0, len(viewpoint_stack) - 1)
+            viewpoint_cam = viewpoint_stack[rand_idx]
+
+
+
+
+
+
+
 
         # Render
         if (iteration - 1) == debug_from:
@@ -125,6 +217,8 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
         loss = (1.0 - opt.lambda_dssim) * Ll1 + opt.lambda_dssim * (1.0 - ssim_value)
 
+
+
         # Depth regularization
         Ll1depth_pure = 0.0
         if depth_l1_weight(iteration) > 0 and viewpoint_cam.depth_reliable:
@@ -141,6 +235,18 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
         loss.backward()
 
+        # PDTS: Add training data and train network (following PDTS original logic)
+        if pdts and pdts_selector is not None:
+            # Add current (camera, loss) pair to training data
+            pdts_selector.add_training_data(viewpoint_cam, loss.item())
+            
+            # Train network after completing each selection cycle (like PDTS original)
+            if iteration % selection_interval == 0:
+                network_loss = pdts_selector.train_network()
+                # Store network loss for progress bar display (don't print immediately)
+                if network_loss is not None:
+                    ema_Ll1depth_for_log = network_loss  # Reuse depth loss field for PDTS loss display
+
         iter_end.record()
 
         with torch.no_grad():
@@ -149,7 +255,11 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
             ema_Ll1depth_for_log = 0.4 * Ll1depth + 0.6 * ema_Ll1depth_for_log
 
             if iteration % 10 == 0:
-                progress_bar.set_postfix({"Loss": f"{ema_loss_for_log:.{7}f}", "Depth Loss": f"{ema_Ll1depth_for_log:.{7}f}"})
+                if pdts:
+                    # Show PDTS network loss instead of depth loss
+                    progress_bar.set_postfix({"Loss": f"{ema_loss_for_log:.{7}f}", "PDTS Loss": f"{ema_Ll1depth_for_log:.{7}f}"})
+                else:
+                    progress_bar.set_postfix({"Loss": f"{ema_loss_for_log:.{7}f}", "Depth Loss": f"{ema_Ll1depth_for_log:.{7}f}"})
                 progress_bar.update(10)
             if iteration == opt.iterations:
                 progress_bar.close()
@@ -261,12 +371,15 @@ if __name__ == "__main__":
     parser.add_argument('--port', type=int, default=6009)
     parser.add_argument('--debug_from', type=int, default=-1)
     parser.add_argument('--detect_anomaly', action='store_true', default=False)
-    parser.add_argument("--test_iterations", nargs="+", type=int, default=[7_000, 30_000])
-    parser.add_argument("--save_iterations", nargs="+", type=int, default=[7_000, 30_000])
+    parser.add_argument("--test_iterations", nargs="+", type=int, default=list(range(2000, 20001, 2000)))
+    parser.add_argument("--save_iterations", nargs="+", type=int, default=list(range(2000, 20001, 2000)))
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument('--disable_viewer', action='store_true', default=False)
     parser.add_argument("--checkpoint_iterations", nargs="+", type=int, default=[])
     parser.add_argument("--start_checkpoint", type=str, default = None)
+    parser.add_argument("--loss_judge", action="store_true", default=False, help="Enable loss-based view selection")
+    parser.add_argument("--num_selected_views", type=int, default=16, help="Number of views to select and training interval (e.g., 8 means select 8 views, train 8 iterations)")
+    parser.add_argument("--pdts", action="store_true", default=False, help="Enable PDTS neural network-based view selection")
     args = parser.parse_args(sys.argv[1:])
     args.save_iterations.append(args.iterations)
     
@@ -279,7 +392,7 @@ if __name__ == "__main__":
     if not args.disable_viewer:
         network_gui.init(args.ip, args.port)
     torch.autograd.set_detect_anomaly(args.detect_anomaly)
-    training(lp.extract(args), op.extract(args), pp.extract(args), args.test_iterations, args.save_iterations, args.checkpoint_iterations, args.start_checkpoint, args.debug_from)
+    training(lp.extract(args), op.extract(args), pp.extract(args), args.test_iterations, args.save_iterations, args.checkpoint_iterations, args.start_checkpoint, args.debug_from, args.loss_judge, args.num_selected_views, args.pdts)
 
     # All done
     print("\nTraining complete.")
