@@ -328,51 +328,70 @@ class PDTSViewSelector:
     """
     def __init__(self, device, x_dim=13, bootstrap_iterations=2000, lambda_diversity=0.5):
         self.device = device
-        self.x_dim = x_dim  # Allow flexible input dimension
+        self.x_dim = x_dim
         self.bootstrap_iterations = bootstrap_iterations
-        self.lambda_diversity = lambda_diversity # A clear trade-off parameter in [0, 1]
-        self.iteration = 0
+        self.lambda_diversity = lambda_diversity
+        # self.iteration = 0  # REMOVED: No longer maintaining internal state
         
-        # Recovery period parameters for opacity reset handling
         self.opacity_reset_interval = 3000
-        self.reset_recovery_period = 500
+        self.reset_recovery_period = 500 
         
         self.training_data_x = []
         self.training_data_y = []
         
-        # Initialize the Risk Learner model and its optimizer
         self.risklearner = RiskLearner(x_dim=self.x_dim, y_dim=1, r_dim=10, z_dim=10, h_dim=10).to(device)
-        self.optimizer = torch.optim.Adam(self.risklearner.parameters(), lr=0.001)
-        self.trainer = RiskLearnerTrainer(device, self.risklearner, self.optimizer)
+        
+        self._initialize_optimizer_and_trainer()
         
         print(f"[PDTS] Initialized. Input feature dimension: {self.x_dim}. Bootstrap for {bootstrap_iterations} iterations. Lambda Diversity = {self.lambda_diversity}")
-        print(f"[PDTS] Opacity reset handling: Every {self.opacity_reset_interval} iterations, random sampling for {self.reset_recovery_period} iterations")
+        print(f"[PDTS] Opacity reset handling: Every {self.opacity_reset_interval} iterations, random sampling for {self.reset_recovery_period} iterations. History and optimizer state will be reset.")
 
-    def _is_in_recovery_period(self):
-        """Check if we're in the recovery period after an opacity reset."""
-        if self.iteration <= self.bootstrap_iterations:
-            return False
-            
-        # Calculate how many iterations since the last opacity reset
-        iterations_since_bootstrap = self.iteration - self.bootstrap_iterations
-        iterations_since_last_reset = iterations_since_bootstrap % self.opacity_reset_interval
-        
-        # We're in recovery if we're within reset_recovery_period iterations after a reset
-        return iterations_since_last_reset < self.reset_recovery_period
+    def _initialize_optimizer_and_trainer(self):
+        """Initializes or re-initializes the optimizer and the trainer."""
+        self.optimizer = torch.optim.Adam(self.risklearner.parameters(), lr=0.001)
+        self.trainer = RiskLearnerTrainer(self.device, self.risklearner, self.optimizer)
 
-    def should_use_network(self):
-        """Checks if enough iterations have passed and sufficient data is collected to trust the network.
-        Also handles periodic random sampling after opacity resets to combat overfitting.
+    def _reset_for_new_epoch(self, current_iteration):
         """
-        # Initial bootstrap phase
-        if self.iteration <= self.bootstrap_iterations:
+        Clears historical data and resets the model's state (prior and optimizer)
+        to adapt to a new data distribution after events like opacity reset.
+        """
+        print(f"\n[PDTS] Iteration {current_iteration}: Opacity reset detected. Resetting training history, model prior, and optimizer state to adapt.\n")
+        
+        # 1. Clear the collected data buffer
+        self.training_data_x.clear()
+        self.training_data_y.clear()
+        
+        # 2. Re-initialize the optimizer and trainer to discard old momentum and state
+        self._initialize_optimizer_and_trainer()
+
+    def _is_in_recovery_period(self, main_iteration):
+        """Check if we're in the recovery period after an opacity reset."""
+        if main_iteration <= self.bootstrap_iterations:
+            return False
+        
+        # This logic checks if the iteration is within the recovery window (500 its)
+        # immediately following a reset point (3000, 6000, etc.).
+        # The modulo of (main_iteration - 1) is used because the reset happens AT iteration 3000,
+        # so the recovery starts at 3001. (3001-1) % 3000 = 0.
+        iterations_since_last_reset_start = (main_iteration - 1) % self.opacity_reset_interval
+        
+        # Is the last reset point relevant? It must have happened after bootstrap.
+        # Find the last reset point.
+        last_reset_point = (main_iteration // self.opacity_reset_interval) * self.opacity_reset_interval
+        if last_reset_point <= self.bootstrap_iterations:
+             return False # The last reset was before we started caring.
+
+        return iterations_since_last_reset_start < self.reset_recovery_period
+
+    def should_use_network(self, main_iteration):
+        """Checks if enough iterations have passed and sufficient data is collected to trust the network."""
+        if main_iteration <= self.bootstrap_iterations:
             return False
             
-        # Check if we're in a post-opacity-reset recovery period
-        if self._is_in_recovery_period():
+        if self._is_in_recovery_period(main_iteration):
             return False
             
-        # Normal operation: use network if we have enough data
         return len(self.training_data_x) > 50
 
     def add_training_data(self, camera, loss_value):
@@ -381,7 +400,6 @@ class PDTSViewSelector:
         self.training_data_x.append(features)
         self.training_data_y.append(loss_value)
         
-        # Simple memory management: keep a sliding window of the most recent data
         max_data_size = 1000
         if len(self.training_data_x) > max_data_size:
             self.training_data_x.pop(0)
@@ -389,7 +407,7 @@ class PDTSViewSelector:
 
     def train_network(self):
         """Periodically trains the RiskLearner on the collected historical data."""
-        if len(self.training_data_x) < 20: # Ensure there is enough data for a meaningful training step
+        if len(self.training_data_x) < 20:
             return None
             
         x_data = torch.stack(self.training_data_x).to(self.device)
@@ -398,43 +416,45 @@ class PDTSViewSelector:
         loss = self.trainer.train_step(x_data, y_data)
         return loss
 
-    def select_views(self, viewpoint_pool, num_selected=16, num_candidates=256):
+    def select_views(self, main_iteration, viewpoint_pool, num_selected=16, num_candidates=256):
         """
         The main selection function called by the 3DGS training loop.
         It orchestrates the entire PDTS pipeline.
         """
-        self.iteration += 1
+        # REMOVED: self.iteration += 1
+
+        # Check if the current iteration is exactly an opacity reset point AND we are past bootstrap.
+        # If so, trigger the reset of PDTS state (history, prior, optimizer).
+        # This happens at iterations 3000, 6000, 9000, etc.
+        is_reset_point = (main_iteration % self.opacity_reset_interval == 0)
+        is_past_bootstrap = (main_iteration > self.bootstrap_iterations)
         
-        if not self.should_use_network():
-            # Phase 1: Bootstrap phase. Use random sampling to explore and collect initial data
-            # before the network is reliable.
+        if is_reset_point and is_past_bootstrap:
+            self._reset_for_new_epoch(main_iteration) # Pass the correct iteration for logging
+
+        # Now, determine whether to use the network based on current state
+        if not self.should_use_network(main_iteration):
+            # During bootstrap or recovery period, use random sampling.
             selected_indices = random.sample(range(len(viewpoint_pool)), min(num_selected, len(viewpoint_pool)))
-            return [viewpoint_pool[i] for i in selected_indices], "bootstrap"
+            return [viewpoint_pool[i] for i in selected_indices], "bootstrap/recovery"
         
-        # Phase 2: Use the trained network for intelligent, diversity-aware sampling.
         try:
-            # Step 1: Create a candidate pool by random sampling from all available views.
+            # Normal operation: Use the trained network.
             num_candidates = min(num_candidates, len(viewpoint_pool))
             candidate_indices = random.sample(range(len(viewpoint_pool)), num_candidates)
-            candidate_cameras = [viewpoint_pool[i] for i in candidate_indices]
+            candidate_cameras = [viewpoint_pool[idx] for idx in candidate_indices] # Fixed bug
             
-            # Step 2: Extract feature vectors for the candidate pool.
             candidate_features = torch.stack([extract_camera_features(cam) for cam in candidate_cameras])
-            
-            # Step 3: Predict scores using Posterior Sampling. The result is stochastic.
             acquisition_scores = self.trainer.predict_for_sampling(candidate_features)
             
-            # Step 4: Use the corrected diversity-aware selection algorithm to pick the best subset.
             selected_candidate_indices = msd_diversified_selection(
                 candidate_features, acquisition_scores, self.lambda_diversity, num_selected
             )
             
-            # Step 5: Map local candidate indices back to global viewpoint_pool indices.
             selected_indices = [candidate_indices[i] for i in selected_candidate_indices]
             return [viewpoint_pool[i] for i in selected_indices], "network"
             
         except Exception as e:
             print(f"[PDTS] CRITICAL ERROR during network selection: {e}. Falling back to random.")
-            # A robust fallback strategy in case of any unexpected errors in the selection process.
             selected_indices = random.sample(range(len(viewpoint_pool)), min(num_selected, len(viewpoint_pool)))
             return [viewpoint_pool[i] for i in selected_indices], "fallback"

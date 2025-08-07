@@ -122,7 +122,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
             if iteration >= next_selection_iteration or len(selected_views) == 0:
                 viewpoint_pool = scene.getTrainCameras()
                 selected_views, selection_mode = pdts_selector.select_views(
-                    viewpoint_pool, num_selected=num_selected_views, num_candidates=num_candidate_views
+                    iteration, viewpoint_pool, num_selected=num_selected_views, num_candidates=num_candidate_views
                 )
                 current_selection_round += 1
                 next_selection_iteration = iteration + selection_interval
@@ -186,11 +186,6 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 viewpoint_stack = scene.getTrainCameras().copy()
             rand_idx = randint(0, len(viewpoint_stack) - 1)
             viewpoint_cam = viewpoint_stack[rand_idx]
-
-
-
-
-
 
 
 
