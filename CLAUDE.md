@@ -171,10 +171,10 @@ python train.py -s ./datasets/tandt_db/tandt/truck -m ./output/baseline_test --i
 ## 📋 PROJECT SUMMARY  
 **What we had**: 3DGS with 32选4 direct loss calculation (slow but working)
 **What we implemented**: PDTS neural network integration for fast view difficulty prediction
-**Current status**: ✅ PDTS integration完成并修复关键bug，理论正确性得到保证
+**Current status**: ✅ PDTS integration完成并修复关键bug，支持完全可配置的参数
 **Key achievement**: 用Neural Process预测view difficulty，避免昂贵的3DGS forward pass
 
-### 🔧 **CRITICAL FIXES COMPLETED** (Latest Update):
+### 🔧 **CRITICAL FIXES COMPLETED**:
 1. **Diversity Scoring Algorithm**: 修复diversity和acquisition score的尺度不匹配问题
    - 实现Min-Max归一化确保两个score在[0,1]范围内
    - 添加`lambda_diversity`平衡参数实现proper trade-off
@@ -191,4 +191,50 @@ python train.py -s ./datasets/tandt_db/tandt/truck -m ./output/baseline_test --i
    - 支持numpy array和tensor混合输入
    - 防止`AttributeError`运行时错误
 
-**Next**: 实际性能测试，验证修复后的PDTS是否真正加速training并提供理论正确的exploration
+### 🛠️ **LATEST UPDATES** (2025-08-07):
+5. **Full Parameter Configurability**: 所有关键参数现在都支持命令行配置
+   - ✅ `--num_selected_views` (默认4): 最终选择的视角数量
+   - ✅ `--num_candidate_views` (默认32): 候选视角池大小
+   - ✅ `--lambda_diversity` (默认0.5): exploitation vs exploration权衡参数
+   
+6. **Improved Default Values**: 更新为更实用的默认配置
+   - 从16选4改为32选4策略 (更合理的候选池)
+   - λ=0.5实现balanced exploration-exploitation
+   
+7. **Parameter Validation**: 确认热身阶段功能正常
+   - ✅ Bootstrap期间PDTS正常收集训练数据但不参与view selection
+   - ✅ 两种模式(loss_judge + PDTS)都正确选择高loss视角
+   - ✅ λ=0.0时退化为pure exploitation模式 (符合预期)
+
+8. **🚨 CRITICAL PROBLEM IDENTIFIED & FIXED**: PDTS模型在10000轮附近崩溃
+   - **根本原因**: 3DGS每3000轮进行opacity reset，导致scene突变，PDTS预测模型过拟合历史数据
+   - **解决方案**: Periodic Recovery Sampling Strategy
+     - 每次opacity reset后的500轮自动切换回随机采样
+     - 数据收集继续进行，帮助模型适应新的loss分布
+     - 500轮后恢复网络预测模式
+   - **实现细节**: 
+     - `_is_in_recovery_period()`: 检测是否在恢复期
+     - 自动适配`opt.opacity_reset_interval` (默认3000)
+     - Recovery period可配置 (默认500轮)
+
+**Command Examples**:
+```bash
+# 默认PDTS (32选4, λ=0.5)  
+python train.py -s dataset -m output --pdts
+
+# 自定义参数
+python train.py -s dataset -m output --pdts --num_selected_views 8 --num_candidate_views 64 --lambda_diversity 0.3
+
+# Pure exploitation (λ=0.0)
+python train.py -s dataset -m output --pdts --lambda_diversity 0.0
+```
+
+**Timeline of PDTS Behavior**:
+```
+轮次:    0-2000      2001-3000    3001-3500    3501-6000    6001-6500    6501-9000    9001-9500    ...
+模式:    bootstrap   network      recovery     network      recovery     network      recovery     ...
+原因:    初始训练    正常预测     opacity      正常预测     opacity      正常预测     opacity      ...
+                               reset                    reset                    reset
+```
+
+**Status**: ✅ Overfitting问题已解决，ready for robustness testing

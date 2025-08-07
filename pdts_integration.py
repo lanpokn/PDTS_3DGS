@@ -326,12 +326,16 @@ class PDTSViewSelector:
     The main interface that integrates the RiskLearner with the 3DGS training loop.
     It manages the overall strategy: bootstrapping, data collection, model training, and view selection.
     """
-    def __init__(self, device, x_dim=13, bootstrap_iterations=200, lambda_diversity=0.5):
+    def __init__(self, device, x_dim=13, bootstrap_iterations=2000, lambda_diversity=0.5, opacity_reset_interval=3000, reset_recovery_period=500):
         self.device = device
         self.x_dim = x_dim  # Allow flexible input dimension
         self.bootstrap_iterations = bootstrap_iterations
         self.lambda_diversity = lambda_diversity # A clear trade-off parameter in [0, 1]
         self.iteration = 0
+        
+        # New parameters for handling opacity reset cycles
+        self.opacity_reset_interval = opacity_reset_interval  # When opacity resets happen
+        self.reset_recovery_period = reset_recovery_period    # Random sampling period after reset
         
         self.training_data_x = []
         self.training_data_y = []
@@ -342,10 +346,34 @@ class PDTSViewSelector:
         self.trainer = RiskLearnerTrainer(device, self.risklearner, self.optimizer)
         
         print(f"[PDTS] Initialized. Input feature dimension: {self.x_dim}. Bootstrap for {bootstrap_iterations} iterations. Lambda Diversity = {self.lambda_diversity}")
+        print(f"[PDTS] Opacity reset handling: Every {opacity_reset_interval} iterations, random sampling for {reset_recovery_period} iterations")
+
+    def _is_in_recovery_period(self):
+        """Check if we're in a recovery period after an opacity reset."""
+        if self.iteration <= self.bootstrap_iterations:
+            return False
+            
+        # Calculate how many iterations since the last opacity reset
+        iterations_since_bootstrap = self.iteration - self.bootstrap_iterations
+        iterations_since_last_reset = iterations_since_bootstrap % self.opacity_reset_interval
+        
+        # We're in recovery if we're within reset_recovery_period iterations after a reset
+        return iterations_since_last_reset < self.reset_recovery_period
 
     def should_use_network(self):
-        """Checks if enough iterations have passed and sufficient data is collected to trust the network."""
-        return self.iteration > self.bootstrap_iterations and len(self.training_data_x) > 50
+        """Checks if enough iterations have passed and sufficient data is collected to trust the network.
+        Also handles periodic random sampling after opacity resets to combat overfitting.
+        """
+        # Initial bootstrap phase
+        if self.iteration <= self.bootstrap_iterations:
+            return False
+            
+        # Check if we're in a post-opacity-reset recovery period
+        if self._is_in_recovery_period():
+            return False
+            
+        # Normal operation: use network if we have enough data
+        return len(self.training_data_x) > 50
 
     def add_training_data(self, camera, loss_value):
         """Stores a new {view, loss} pair for training the RiskLearner."""
@@ -381,7 +409,15 @@ class PDTSViewSelector:
             # Phase 1: Bootstrap phase. Use random sampling to explore and collect initial data
             # before the network is reliable.
             selected_indices = random.sample(range(len(viewpoint_pool)), min(num_selected, len(viewpoint_pool)))
-            return [viewpoint_pool[i] for i in selected_indices], "bootstrap"
+            # Determine the reason for random sampling
+        if self.iteration <= self.bootstrap_iterations:
+            mode = "bootstrap"
+        elif self._is_in_recovery_period():
+            mode = "recovery"
+        else:
+            mode = "fallback"
+        
+        return [viewpoint_pool[i] for i in selected_indices], mode
         
         # Phase 2: Use the trained network for intelligent, diversity-aware sampling.
         try:

@@ -86,7 +86,9 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
             device="cuda", 
             x_dim=13,  # <--- 在这里明确指定新的输入维度
             bootstrap_iterations=2000, 
-            lambda_diversity=lambda_diversity
+            lambda_diversity=lambda_diversity,
+            opacity_reset_interval=opt.opacity_reset_interval,
+            reset_recovery_period=500
         )
         # Quiet initialization
 
