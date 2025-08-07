@@ -16,6 +16,10 @@
 
 python train.py -s ./datasets/tandt_db/tandt/truck -m ./output/pdts_test --iterations 20000 --pdts --num_selected_views 4
 
+python train.py -s ./datasets/tandt_db/tandt/train -m ./output/train --iterations 20000
+python train.py -s ./datasets/tandt_db/tandt/train -m ./output/train --iterations 20000 --pdts --num_selected_views 4 --num_candidate_views 32
+
+
   1. Step 3: 网络预测用pred_mu（预测的loss均值）作为acquisition score
   2. Step 4: 使用acquisition_scores = pred_mu，即选择预测loss最高的
   3. Step 5: MSD多样性正则化：acquisition_component + diversity_component

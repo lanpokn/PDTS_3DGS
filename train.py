@@ -44,7 +44,7 @@ try:
 except:
     SPARSE_ADAM_AVAILABLE = False
 
-def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint, debug_from, loss_judge=False, num_selected_views=16, pdts=False):
+def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint, debug_from, loss_judge=False, num_selected_views=4, num_candidate_views=32, pdts=False, lambda_diversity=0.5):
 
     if not SPARSE_ADAM_AVAILABLE and opt.optimizer_type == "sparse_adam":
         sys.exit(f"Trying to use sparse adam but it is not installed, please install the correct rasterizer using pip install [3dgs_accel].")
@@ -85,8 +85,8 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         pdts_selector = PDTSViewSelector(
             device="cuda", 
             x_dim=13,  # <--- 在这里明确指定新的输入维度
-            bootstrap_iterations=200, 
-            lambda_diversity=0.5
+            bootstrap_iterations=2000, 
+            lambda_diversity=lambda_diversity
         )
         # Quiet initialization
 
@@ -122,7 +122,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
             if iteration >= next_selection_iteration or len(selected_views) == 0:
                 viewpoint_pool = scene.getTrainCameras()
                 selected_views, selection_mode = pdts_selector.select_views(
-                    viewpoint_pool, num_selected=num_selected_views, num_candidates=32
+                    viewpoint_pool, num_selected=num_selected_views, num_candidates=num_candidate_views
                 )
                 current_selection_round += 1
                 next_selection_iteration = iteration + selection_interval
@@ -139,8 +139,8 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 viewpoint_pool = scene.getTrainCameras()
                 num_cams = len(viewpoint_pool)
                 
-                # Randomly select candidates (32 or all views if fewer than 32)
-                num_candidates = min(32, num_cams)
+                # Randomly select candidates (num_candidate_views or all views if fewer)
+                num_candidates = min(num_candidate_views, num_cams)
                 candidate_indices = random.sample(range(num_cams), k=num_candidates)
                 
                 # Evaluate candidate views and get their losses
@@ -378,7 +378,9 @@ if __name__ == "__main__":
     parser.add_argument("--checkpoint_iterations", nargs="+", type=int, default=[])
     parser.add_argument("--start_checkpoint", type=str, default = None)
     parser.add_argument("--loss_judge", action="store_true", default=False, help="Enable loss-based view selection")
-    parser.add_argument("--num_selected_views", type=int, default=16, help="Number of views to select and training interval (e.g., 8 means select 8 views, train 8 iterations)")
+    parser.add_argument("--num_selected_views", type=int, default=4, help="Number of views to select and training interval (e.g., 8 means select 8 views, train 8 iterations)")
+    parser.add_argument("--num_candidate_views", type=int, default=32, help="Number of candidate views to evaluate before selection (default: 32)")
+    parser.add_argument("--lambda_diversity", type=float, default=0.5, help="Trade-off parameter between acquisition score and diversity score in PDTS (0.0=pure exploitation, 1.0=pure exploration)")
     parser.add_argument("--pdts", action="store_true", default=False, help="Enable PDTS neural network-based view selection")
     args = parser.parse_args(sys.argv[1:])
     args.save_iterations.append(args.iterations)
@@ -392,7 +394,7 @@ if __name__ == "__main__":
     if not args.disable_viewer:
         network_gui.init(args.ip, args.port)
     torch.autograd.set_detect_anomaly(args.detect_anomaly)
-    training(lp.extract(args), op.extract(args), pp.extract(args), args.test_iterations, args.save_iterations, args.checkpoint_iterations, args.start_checkpoint, args.debug_from, args.loss_judge, args.num_selected_views, args.pdts)
+    training(lp.extract(args), op.extract(args), pp.extract(args), args.test_iterations, args.save_iterations, args.checkpoint_iterations, args.start_checkpoint, args.debug_from, args.loss_judge, args.num_selected_views, args.num_candidate_views, args.pdts, args.lambda_diversity)
 
     # All done
     print("\nTraining complete.")

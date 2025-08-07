@@ -36,7 +36,7 @@ This is a dual project combining:
 - **Encoder**: Maps (camera_features, loss) → representation r_i
 - **MuSigmaEncoder**: Aggregates representations → μ,σ for latent variable z  
 - **Decoder**: Maps (camera_features, z) → predicted loss
-- **RiskLearner**: Neural Process架构 (x_dim=10, y_dim=1, r_dim=10, z_dim=10, h_dim=10)
+- **RiskLearner**: Neural Process架构 (x_dim=13, y_dim=1, r_dim=10, z_dim=10, h_dim=10) - 已更新维度
 
 #### **2. Training Logic** (复制自PDTS trainer):
 **来源**: `PDTS/sinusoid/Model/trainer_risklearner.py`
@@ -44,21 +44,30 @@ This is a dual project combining:
 - **Prior更新**: 用变分后验更新先验分布 (Line 164-166)
 - **训练频率**: 每num_selected_views轮训练一次 (模仿PDTS的每epoch训练)
 
-#### **3. View Selection Strategy** (改编自PDTS采样):
+#### **3. View Selection Strategy** (IMPROVED 已修复):
 **来源**: `PDTS/sinusoid/trainer_maml.py` Line 178-199 ("diverse"分支)
-- **Posterior Sampling**: 用预测均值μ作为acquisition score (Line 94)
-- **Diversity Regularization**: Maximum Sum of Distances (MSD) 算法
+- **Posterior Sampling**: 真正的随机采样 (返回单个stochastic prediction而非均值)
+- **Diversity Regularization**: 修复的MSD算法，正确的归一化和权重平衡
 - **Bootstrap Phase**: 前200轮随机采样收集初始数据
 
-#### **4. Camera Feature Extraction** (新设计):
+**Critical Fixes Applied:**
+- ✅ **Fixed Posterior Sampling**: `predict_for_sampling`现在返回单个随机样本而非确定性均值
+- ✅ **Fixed Diversity Scoring**: 实现Min-Max归一化，确保acquisition_score和diversity_score在相同尺度[0,1]
+- ✅ **Added Trade-off Parameter**: `lambda_diversity`参数实现真正的平衡: `(1-λ)*acquisition + λ*diversity`
+
+#### **4. Camera Feature Extraction** (IMPROVED 已修复):
 **设计原理**: 将3DGS相机参数转换为网络输入特征
 ```python
-# 10维特征向量:
+# 13维特征向量 (已改进):
 - camera_center (3D): 世界坐标中的相机位置
-- euler_angles (3D): 旋转矩阵R转换为欧拉角表示朝向  
+- rotation_6d (6D): 6D旋转表示 (替代欧拉角，避免万向锁)
 - fov (2D): FoVx, FoVy视场角
 - resolution (2D): 图像宽高
 ```
+**Key Fixes:**
+- ✅ 替换欧拉角为6D旋转表示，避免万向锁和不连续性
+- ✅ 添加tensor类型检查，支持numpy array输入
+- ✅ 更新x_dim=13以匹配新特征维度
 
 #### **5. Integration with 3DGS Training Loop**:
 **设计原理**: 最小化对原train.py的修改
@@ -162,6 +171,24 @@ python train.py -s ./datasets/tandt_db/tandt/truck -m ./output/baseline_test --i
 ## 📋 PROJECT SUMMARY  
 **What we had**: 3DGS with 32选4 direct loss calculation (slow but working)
 **What we implemented**: PDTS neural network integration for fast view difficulty prediction
-**Current status**: ✅ PDTS integration完成，支持bootstrap → network prediction transition
+**Current status**: ✅ PDTS integration完成并修复关键bug，理论正确性得到保证
 **Key achievement**: 用Neural Process预测view difficulty，避免昂贵的3DGS forward pass
-**Next**: 测试性能对比，验证PDTS是否真正加速了training
+
+### 🔧 **CRITICAL FIXES COMPLETED** (Latest Update):
+1. **Diversity Scoring Algorithm**: 修复diversity和acquisition score的尺度不匹配问题
+   - 实现Min-Max归一化确保两个score在[0,1]范围内
+   - 添加`lambda_diversity`平衡参数实现proper trade-off
+   
+2. **Posterior Sampling Mechanism**: 修复随机性缺失问题  
+   - `predict_for_sampling`现在返回真正的stochastic sample
+   - 符合PDTS paper Eq.12的Thompson Sampling理论要求
+   
+3. **Camera Feature Representation**: 提升特征稳定性
+   - 替换欧拉角为6D旋转表示避免万向锁
+   - x_dim更新为13维，添加robust tensor处理
+   
+4. **Code Robustness**: 处理数据类型兼容性
+   - 支持numpy array和tensor混合输入
+   - 防止`AttributeError`运行时错误
+
+**Next**: 实际性能测试，验证修复后的PDTS是否真正加速training并提供理论正确的exploration
