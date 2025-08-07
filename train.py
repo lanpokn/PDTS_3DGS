@@ -116,6 +116,10 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         if iteration % 1000 == 0:
             gaussians.oneupSHdegree()
 
+        # Perform PDTS state check on EVERY iteration.
+        if pdts and pdts_selector is not None:
+            pdts_selector.check_and_perform_reset(iteration)
+
         # View selection logic
         if pdts:
             # PDTS-based view selection

@@ -365,6 +365,17 @@ class PDTSViewSelector:
         # 2. Re-initialize the optimizer and trainer to discard old momentum and state
         self._initialize_optimizer_and_trainer()
 
+    def check_and_perform_reset(self, main_iteration):
+        """
+        This method should be called on EVERY iteration from the main training loop.
+        It checks if a reset condition is met and acts accordingly.
+        """
+        is_reset_point = (main_iteration % self.opacity_reset_interval == 0)
+        is_past_bootstrap = (main_iteration > self.bootstrap_iterations)
+        
+        if is_reset_point and is_past_bootstrap:
+            self._reset_for_new_epoch(main_iteration)
+
     def _is_in_recovery_period(self, main_iteration):
         """Check if we're in the recovery period after an opacity reset."""
         if main_iteration <= self.bootstrap_iterations:
@@ -418,21 +429,10 @@ class PDTSViewSelector:
 
     def select_views(self, main_iteration, viewpoint_pool, num_selected=16, num_candidates=256):
         """
-        The main selection function called by the 3DGS training loop.
-        It orchestrates the entire PDTS pipeline.
+        This function now ONLY selects views. The reset logic has been moved out.
         """
-        # REMOVED: self.iteration += 1
-
-        # Check if the current iteration is exactly an opacity reset point AND we are past bootstrap.
-        # If so, trigger the reset of PDTS state (history, prior, optimizer).
-        # This happens at iterations 3000, 6000, 9000, etc.
-        is_reset_point = (main_iteration % self.opacity_reset_interval == 0)
-        is_past_bootstrap = (main_iteration > self.bootstrap_iterations)
+        # The reset check is now done outside, in the main loop.
         
-        if is_reset_point and is_past_bootstrap:
-            self._reset_for_new_epoch(main_iteration) # Pass the correct iteration for logging
-
-        # Now, determine whether to use the network based on current state
         if not self.should_use_network(main_iteration):
             # During bootstrap or recovery period, use random sampling.
             selected_indices = random.sample(range(len(viewpoint_pool)), min(num_selected, len(viewpoint_pool)))

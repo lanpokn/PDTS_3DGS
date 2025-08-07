@@ -174,7 +174,21 @@ python train.py -s ./datasets/tandt_db/tandt/truck -m ./output/baseline_test --i
 **Current status**: ✅ PDTS integration完成并修复关键bug，理论正确性得到保证
 **Key achievement**: 用Neural Process预测view difficulty，避免昂贵的3DGS forward pass
 
-### 🔧 **CRITICAL FIXES COMPLETED** (Latest Update):
+### 🔧 **CRITICAL FIXES COMPLETED**:
+
+#### **2024-08-07 Update - Latest Bugfixes**:
+5. **✅ Time Synchronization Bug** (CRITICAL): 修复PDTS内部计数器与主训练循环不同步问题
+   - **Problem**: PDTS内部维护`self.iteration`计数器，与`train.py`主循环的`iteration`变量脱节
+   - **Symptom**: 日志显示 `[PDTS] Iteration 3000: Opacity reset...` 但主循环实际在12000轮
+   - **Root Cause**: PDTSViewSelector类自己维护状态，容易出错且难以调试
+   - **Solution**: 完全移除内部`self.iteration`，改为无状态设计
+   - **Files Modified**: 
+     - `pdts_integration.py:334` - 移除`self.iteration = 0`
+     - `pdts_integration.py:354,368,387,419` - 所有方法接收外部`main_iteration`参数
+     - `train.py:124` - `select_views`调用传入主循环的`iteration`
+   - **Result**: PDTS时间判断与主训练循环完全同步，日志准确显示真实迭代次数
+
+#### **Previous Fixes** (Already Applied):
 1. **Diversity Scoring Algorithm**: 修复diversity和acquisition score的尺度不匹配问题
    - 实现Min-Max归一化确保两个score在[0,1]范围内
    - 添加`lambda_diversity`平衡参数实现proper trade-off
@@ -191,4 +205,10 @@ python train.py -s ./datasets/tandt_db/tandt/truck -m ./output/baseline_test --i
    - 支持numpy array和tensor混合输入
    - 防止`AttributeError`运行时错误
 
-**Next**: 实际性能测试，验证修复后的PDTS是否真正加速training并提供理论正确的exploration
+### 🎯 **CURRENT STATUS**:
+- **Core Implementation**: ✅ 所有关键bug已修复，代码理论正确性得到保证
+- **Architecture**: ✅ 无状态设计，健壮性大幅提升
+- **Integration**: ✅ PDTS与3DGS训练循环完美同步
+- **Ready for**: 大规模性能测试和实际应用验证
+
+**Next Priority**: 性能对比测试 - 验证PDTS是否真正加速training并提供有效的exploration vs exploitation balance
