@@ -84,9 +84,10 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         from pdts_integration import PDTSViewSelector
         pdts_selector = PDTSViewSelector(
             device="cuda", 
-            x_dim=13,  # <--- 在这里明确指定新的输入维度
-            bootstrap_iterations=2000, 
-            lambda_diversity=lambda_diversity
+            x_dim=13,
+            lambda_diversity=lambda_diversity,
+            network_ratio=2/3,  # 67% network after bootstrap
+            bootstrap_iterations=2000  # Pure random for first 2000 iterations
         )
         # Quiet initialization
 
@@ -116,9 +117,6 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         if iteration % 1000 == 0:
             gaussians.oneupSHdegree()
 
-        # Perform PDTS state check on EVERY iteration.
-        if pdts and pdts_selector is not None:
-            pdts_selector.check_and_perform_reset(iteration)
 
         # View selection logic
         if pdts:

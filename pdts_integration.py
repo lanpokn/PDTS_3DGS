@@ -324,86 +324,36 @@ def extract_camera_features(camera):
 class PDTSViewSelector:
     """
     The main interface that integrates the RiskLearner with the 3DGS training loop.
-    It manages the overall strategy: bootstrapping, data collection, model training, and view selection.
+    
+    NEW STRATEGY: Hybrid Network + Random Selection
+    This version implements a robust hybrid selection strategy. For each batch of views,
+    a portion is selected by the PDTS network (exploitation), and the rest is
+    selected completely randomly (exploration). This removes the need for complex
+    bootstrap and recovery period management, making the process more stable and
+    resilient to abrupt changes in the loss landscape (e.g., after opacity resets).
     """
-    def __init__(self, device, x_dim=13, bootstrap_iterations=2000, lambda_diversity=0.5):
+    def __init__(self, device, x_dim=13, lambda_diversity=0.5, network_ratio=2/3, bootstrap_iterations=2000):
+        # NEW: Added dynamic network_ratio strategy with bootstrap phase
         self.device = device
         self.x_dim = x_dim
-        self.bootstrap_iterations = bootstrap_iterations
         self.lambda_diversity = lambda_diversity
-        # self.iteration = 0  # REMOVED: No longer maintaining internal state
-        
-        self.opacity_reset_interval = 3000
-        self.reset_recovery_period = 500 
+        self.network_ratio = network_ratio
+        self.bootstrap_iterations = bootstrap_iterations
         
         self.training_data_x = []
         self.training_data_y = []
         
         self.risklearner = RiskLearner(x_dim=self.x_dim, y_dim=1, r_dim=10, z_dim=10, h_dim=10).to(device)
-        
-        self._initialize_optimizer_and_trainer()
-        
-        print(f"[PDTS] Initialized. Input feature dimension: {self.x_dim}. Bootstrap for {bootstrap_iterations} iterations. Lambda Diversity = {self.lambda_diversity}")
-        print(f"[PDTS] Opacity reset handling: Every {self.opacity_reset_interval} iterations, random sampling for {self.reset_recovery_period} iterations. History and optimizer state will be reset.")
-
-    def _initialize_optimizer_and_trainer(self):
-        """Initializes or re-initializes the optimizer and the trainer."""
         self.optimizer = torch.optim.Adam(self.risklearner.parameters(), lr=0.001)
-        self.trainer = RiskLearnerTrainer(self.device, self.risklearner, self.optimizer)
-
-    def _reset_for_new_epoch(self, current_iteration):
-        """
-        Clears historical data and resets the model's state (prior and optimizer)
-        to adapt to a new data distribution after events like opacity reset.
-        """
-        print(f"\n[PDTS] Iteration {current_iteration}: Opacity reset detected. Resetting training history, model prior, and optimizer state to adapt.\n")
+        self.trainer = RiskLearnerTrainer(device, self.risklearner, self.optimizer)
         
-        # 1. Clear the collected data buffer
-        self.training_data_x.clear()
-        self.training_data_y.clear()
-        
-        # 2. Re-initialize the optimizer and trainer to discard old momentum and state
-        self._initialize_optimizer_and_trainer()
+        print(f"[PDTS] Initialized with Dynamic Hybrid Strategy.")
+        print(f"[PDTS] Bootstrap Phase: 0-{bootstrap_iterations} iterations (100% Random)")
+        print(f"[PDTS] Hybrid Phase: {bootstrap_iterations}+ iterations ({self.network_ratio*100:.1f}% Network, {(1-self.network_ratio)*100:.1f}% Random)")
 
-    def check_and_perform_reset(self, main_iteration):
-        """
-        This method should be called on EVERY iteration from the main training loop.
-        It checks if a reset condition is met and acts accordingly.
-        """
-        is_reset_point = (main_iteration % self.opacity_reset_interval == 0)
-        is_past_bootstrap = (main_iteration > self.bootstrap_iterations)
-        
-        if is_reset_point and is_past_bootstrap:
-            self._reset_for_new_epoch(main_iteration)
-
-    def _is_in_recovery_period(self, main_iteration):
-        """Check if we're in the recovery period after an opacity reset."""
-        if main_iteration <= self.bootstrap_iterations:
-            return False
-        
-        # This logic checks if the iteration is within the recovery window (500 its)
-        # immediately following a reset point (3000, 6000, etc.).
-        # The modulo of (main_iteration - 1) is used because the reset happens AT iteration 3000,
-        # so the recovery starts at 3001. (3001-1) % 3000 = 0.
-        iterations_since_last_reset_start = (main_iteration - 1) % self.opacity_reset_interval
-        
-        # Is the last reset point relevant? It must have happened after bootstrap.
-        # Find the last reset point.
-        last_reset_point = (main_iteration // self.opacity_reset_interval) * self.opacity_reset_interval
-        if last_reset_point <= self.bootstrap_iterations:
-             return False # The last reset was before we started caring.
-
-        return iterations_since_last_reset_start < self.reset_recovery_period
-
-    def should_use_network(self, main_iteration):
-        """Checks if enough iterations have passed and sufficient data is collected to trust the network."""
-        if main_iteration <= self.bootstrap_iterations:
-            return False
-            
-        if self._is_in_recovery_period(main_iteration):
-            return False
-            
-        return len(self.training_data_x) > 50
+    # REMOVED: All old state-management methods are gone.
+    # _initialize_optimizer_and_trainer, _reset_for_new_epoch, 
+    # check_and_perform_reset, _is_in_recovery_period, should_use_network
 
     def add_training_data(self, camera, loss_value):
         """Stores a new {view, loss} pair for training the RiskLearner."""
@@ -411,6 +361,7 @@ class PDTSViewSelector:
         self.training_data_x.append(features)
         self.training_data_y.append(loss_value)
         
+        # Simple memory management
         max_data_size = 1000
         if len(self.training_data_x) > max_data_size:
             self.training_data_x.pop(0)
@@ -420,41 +371,69 @@ class PDTSViewSelector:
         """Periodically trains the RiskLearner on the collected historical data."""
         if len(self.training_data_x) < 20:
             return None
-            
         x_data = torch.stack(self.training_data_x).to(self.device)
         y_data = torch.tensor(self.training_data_y, dtype=torch.float32).to(self.device)
-        
         loss = self.trainer.train_step(x_data, y_data)
         return loss
 
-    def select_views(self, main_iteration, viewpoint_pool, num_selected=16, num_candidates=256):
+    # COMPLETELY REWRITTEN: select_views with the new dynamic hybrid logic
+    def select_views(self, current_iteration, viewpoint_pool, num_selected=16, num_candidates=256):
         """
-        This function now ONLY selects views. The reset logic has been moved out.
+        Selects views using dynamic strategy:
+        - Before bootstrap_iterations: Pure random (network_ratio = 0)
+        - After bootstrap_iterations: Hybrid selection (network_ratio = configured value)
         """
-        # The reset check is now done outside, in the main loop.
+        # Dynamic network ratio based on iteration
+        if current_iteration <= self.bootstrap_iterations:
+            effective_network_ratio = 0.0  # Pure random during bootstrap
+        else:
+            effective_network_ratio = self.network_ratio  # Use configured ratio after bootstrap
         
-        if not self.should_use_network(main_iteration):
-            # During bootstrap or recovery period, use random sampling.
+        # Fallback to pure random if not enough data to even try using the network.
+        if len(self.training_data_x) < 20 or effective_network_ratio == 0.0:
             selected_indices = random.sample(range(len(viewpoint_pool)), min(num_selected, len(viewpoint_pool)))
-            return [viewpoint_pool[i] for i in selected_indices], "bootstrap/recovery"
-        
+            phase = "bootstrap" if current_iteration <= self.bootstrap_iterations else "random_fallback"
+            return [viewpoint_pool[i] for i in selected_indices], phase
+
         try:
-            # Normal operation: Use the trained network.
-            num_candidates = min(num_candidates, len(viewpoint_pool))
-            candidate_indices = random.sample(range(len(viewpoint_pool)), num_candidates)
-            candidate_cameras = [viewpoint_pool[idx] for idx in candidate_indices] # Fixed bug
+            # --- Step 1: Calculate the number of views for each strategy ---
+            num_network = round(num_selected * effective_network_ratio)
+            num_random = num_selected - num_network
             
+            # --- Step 2: Create a candidate pool for selection ---
+            num_candidates = min(num_candidates, len(viewpoint_pool))
+            candidate_indices_pool = random.sample(range(len(viewpoint_pool)), num_candidates)
+            
+            # --- Step 3: Select views using the PDTS Network ---
+            candidate_cameras = [viewpoint_pool[i] for i in candidate_indices_pool]
             candidate_features = torch.stack([extract_camera_features(cam) for cam in candidate_cameras])
             acquisition_scores = self.trainer.predict_for_sampling(candidate_features)
             
-            selected_candidate_indices = msd_diversified_selection(
-                candidate_features, acquisition_scores, self.lambda_diversity, num_selected
+            # Ask for `num_network` views from the diversified selection algorithm
+            network_selected_local_indices = msd_diversified_selection(
+                candidate_features, acquisition_scores, self.lambda_diversity, num_network
             )
+            # Map local candidate indices back to global viewpoint_pool indices
+            network_final_indices = {candidate_indices_pool[i] for i in network_selected_local_indices}
+
+            # --- Step 4: Select remaining views randomly, ensuring no overlap ---
+            # Create a pool of indices that were NOT selected by the network
+            remaining_global_indices = [idx for idx in range(len(viewpoint_pool)) if idx not in network_final_indices]
             
-            selected_indices = [candidate_indices[i] for i in selected_candidate_indices]
-            return [viewpoint_pool[i] for i in selected_indices], "network"
+            # Randomly sample `num_random` views from the remaining pool
+            if len(remaining_global_indices) >= num_random:
+                random_final_indices = set(random.sample(remaining_global_indices, num_random))
+            else:
+                # If not enough remaining views, just take all of them
+                random_final_indices = set(remaining_global_indices)
+
+            # --- Step 5: Combine the selections ---
+            final_indices = list(network_final_indices.union(random_final_indices))
+            
+            return [viewpoint_pool[i] for i in final_indices], "hybrid_network"
             
         except Exception as e:
-            print(f"[PDTS] CRITICAL ERROR during network selection: {e}. Falling back to random.")
+            # A robust fallback for any error during network selection
+            print(f"[PDTS] CRITICAL ERROR during hybrid selection: {e}. Falling back to pure random.")
             selected_indices = random.sample(range(len(viewpoint_pool)), min(num_selected, len(viewpoint_pool)))
-            return [viewpoint_pool[i] for i in selected_indices], "fallback"
+            return [viewpoint_pool[i] for i in selected_indices], "fallback_random"
