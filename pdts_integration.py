@@ -332,7 +332,7 @@ class PDTSViewSelector:
     bootstrap and recovery period management, making the process more stable and
     resilient to abrupt changes in the loss landscape (e.g., after opacity resets).
     """
-    def __init__(self, device, x_dim=13, lambda_diversity=0.5, network_ratio=2/3, bootstrap_iterations=2000):
+    def __init__(self, device, x_dim=13, lambda_diversity=0.5, network_ratio=2/3, bootstrap_iterations=1000):
         # NEW: Added dynamic network_ratio strategy with bootstrap phase
         self.device = device
         self.x_dim = x_dim
@@ -355,8 +355,12 @@ class PDTSViewSelector:
     # _initialize_optimizer_and_trainer, _reset_for_new_epoch, 
     # check_and_perform_reset, _is_in_recovery_period, should_use_network
 
-    def add_training_data(self, camera, loss_value):
-        """Stores a new {view, loss} pair for training the RiskLearner."""
+    def add_training_data(self, camera, loss_value, current_iteration):
+        """Stores a new {view, loss} pair for training the RiskLearner (only after bootstrap)."""
+        # Skip data collection during bootstrap phase
+        if current_iteration <= self.bootstrap_iterations:
+            return  # Don't collect any data during bootstrap
+        
         features = extract_camera_features(camera)
         self.training_data_x.append(features)
         self.training_data_y.append(loss_value)
@@ -367,8 +371,12 @@ class PDTSViewSelector:
             self.training_data_x.pop(0)
             self.training_data_y.pop(0)
 
-    def train_network(self):
-        """Periodically trains the RiskLearner on the collected historical data."""
+    def train_network(self, current_iteration):
+        """Periodically trains the RiskLearner on the collected historical data (only after bootstrap)."""
+        # Skip training during bootstrap phase
+        if current_iteration <= self.bootstrap_iterations:
+            return None  # Don't train during bootstrap
+            
         if len(self.training_data_x) < 20:
             return None
         x_data = torch.stack(self.training_data_x).to(self.device)

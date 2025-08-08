@@ -87,7 +87,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
             x_dim=13,
             lambda_diversity=lambda_diversity,
             network_ratio=2/3,  # 67% network after bootstrap
-            bootstrap_iterations=2000  # Pure random for first 2000 iterations
+            bootstrap_iterations=1000  # Pure random for first 2000 iterations
         )
         # Quiet initialization
 
@@ -234,12 +234,12 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
         # PDTS: Add training data and train network (following PDTS original logic)
         if pdts and pdts_selector is not None:
-            # Add current (camera, loss) pair to training data
-            pdts_selector.add_training_data(viewpoint_cam, loss.item())
+            # Add current (camera, loss) pair to training data (skipped during bootstrap)
+            pdts_selector.add_training_data(viewpoint_cam, loss.item(), iteration)
             
-            # Train network after completing each selection cycle (like PDTS original)
+            # Train network after completing each selection cycle (skipped during bootstrap)
             if iteration % selection_interval == 0:
-                network_loss = pdts_selector.train_network()
+                network_loss = pdts_selector.train_network(iteration)
                 # Store network loss for progress bar display (don't print immediately)
                 if network_loss is not None:
                     ema_Ll1depth_for_log = network_loss  # Reuse depth loss field for PDTS loss display
